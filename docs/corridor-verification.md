@@ -28,3 +28,11 @@ zero funded trustlines — confirmed NOT the real anchor, excluded.
 - Authorization flags: revocable (issuer can claw back/freeze under
   certain conditions)
 - Verified: 3rd October 2026
+
+## EURC
+- Issuer: GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2
+- Domain: none found — no home_domain set, no stellar.toml exists
+- Status: UNVERIFIABLE — no SEP-1 metadata despite 525,977 payments,
+  $4M+ supply. This is itself a risk signal Fairway should surface.
+- Authorization flags: revocable
+- Verified: 3rd October 2026
