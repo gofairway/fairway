@@ -52,6 +52,7 @@ type pathPaymentResponse struct {
 // MeasureResult holds the outcome of a single corridor measurement.
 type MeasureResult struct {
 	MeasuredAt     time.Time
+	TargetUSDValue *float64
 	SellAmount     float64
 	ReceivedAmount *float64
 	LossPct        *float64
@@ -90,15 +91,42 @@ func destinationAssetStr(code, issuer string) string {
 
 // Measure calls Horizon strict-send pathfinding for a corridor, fetches the independent
 // mid-market reference rate, computes loss_pct, and returns the result.
-func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, sellAmount float64) MeasureResult {
-	result := MeasureResult{
-		MeasuredAt: time.Now().UTC(),
-		SellAmount: sellAmount,
+// It dynamically calculates the trade sell_amount using the corridor's target_usd_value
+// scaled by the sell currency's USD exchange rate, ensuring real economic trade size.
+func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, fallbackUSD float64) MeasureResult {
+	targetUSD := corridor.TargetUSDValue
+	if targetUSD <= 0 {
+		targetUSD = fallbackUSD
+	}
+	if targetUSD <= 0 {
+		targetUSD = 100.0
 	}
 
-	// 1. Fetch independent mid-market reference rate.
+	result := MeasureResult{
+		MeasuredAt:     time.Now().UTC(),
+		TargetUSDValue: &targetUSD,
+	}
+
 	fromCur := reference.AssetToCurrency(corridor.SellAssetCode)
 	toCur := reference.AssetToCurrency(corridor.BuyAssetCode)
+
+	// 1. Compute sell_amount dynamically from target_usd_value:
+	// sell_amount = target_usd_value / (sell_currency -> USD rate)
+	var sellToUSDRate float64 = 1.0
+	if fromCur != "USD" && h.refFetcher != nil {
+		r, _, err := h.refFetcher.FetchRate(ctx, fromCur, "USD")
+		if err != nil {
+			msg := fmt.Sprintf("fetching USD rate for sell asset %s: %v", fromCur, err)
+			result.ErrorMsg = &msg
+		} else if r > 0 {
+			sellToUSDRate = r
+		}
+	}
+
+	sellAmount := targetUSD / sellToUSDRate
+	result.SellAmount = sellAmount
+
+	// 2. Fetch independent mid-market reference rate between sell_asset and buy_asset.
 	if h.refFetcher != nil {
 		rate, src, err := h.refFetcher.FetchRate(ctx, fromCur, toCur)
 		if err != nil {
@@ -110,7 +138,7 @@ func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, se
 		}
 	}
 
-	// 2. Build and send Horizon query: paths/strict-send
+	// 3. Build and send Horizon query: paths/strict-send
 	params := url.Values{}
 	params.Set("source_amount", strconv.FormatFloat(sellAmount, 'f', 7, 64))
 
@@ -175,7 +203,7 @@ func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, se
 	result.PathFound = true
 	result.ReceivedAmount = &received
 
-	// 3. Compute loss_pct against independent reference rate:
+	// 4. Compute loss_pct against independent reference rate:
 	// expected_received = sell_amount * reference_rate
 	// loss_pct = (expected_received - received_amount) / expected_received * 100
 	if result.ReferenceRate != nil && *result.ReferenceRate > 0 {

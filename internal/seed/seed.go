@@ -25,12 +25,17 @@ func Corridors(ctx context.Context, st *store.Store, corridors []config.Corridor
 			verDate = &t
 		}
 
+		targetUSD := cc.TargetUSDValue
+		if targetUSD <= 0 {
+			targetUSD = 100.0
+		}
+
 		row := store.Corridor{
-			Name:             cc.Name,
-			SellAssetCode:    cc.SellAssetCode,
-			SellAssetIssuer:  cc.SellAssetIssuer,
-			BuyAssetCode:     cc.BuyAssetCode,
-			BuyAssetIssuer:   cc.BuyAssetIssuer,
+			Name:               cc.Name,
+			SellAssetCode:      cc.SellAssetCode,
+			SellAssetIssuer:    cc.SellAssetIssuer,
+			BuyAssetCode:       cc.BuyAssetCode,
+			BuyAssetIssuer:     cc.BuyAssetIssuer,
 			SellDomain:         cc.SellDomain,
 			SellAnchorMetadata: cc.SellAnchorMetadata,
 			SellVerifiedStatus: cc.SellVerifiedStatus,
@@ -38,6 +43,7 @@ func Corridors(ctx context.Context, st *store.Store, corridors []config.Corridor
 			BuyAnchorMetadata:  cc.BuyAnchorMetadata,
 			BuyVerifiedStatus:  cc.BuyVerifiedStatus,
 			VerificationDate:   verDate,
+			TargetUSDValue:     targetUSD,
 			Enabled:            cc.Enabled,
 		}
 

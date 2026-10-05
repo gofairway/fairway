@@ -42,6 +42,7 @@ type Corridor struct {
 
 	// Shared
 	VerificationDate *time.Time
+	TargetUSDValue   float64
 	Enabled          bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -76,6 +77,7 @@ type Measurement struct {
 	ID             int64
 	CorridorID     int
 	MeasuredAt     time.Time
+	TargetUSDValue *float64
 	SellAmount     float64
 	ReceivedAmount *float64
 	LossPct        *float64
@@ -134,8 +136,8 @@ INSERT INTO corridors
     (name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
      sell_domain, sell_anchor_metadata, sell_verified_status,
      buy_domain, buy_anchor_metadata, buy_verified_status,
-     verification_date, enabled, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
+     verification_date, target_usd_value, enabled, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
 ON CONFLICT (name) DO UPDATE SET
     sell_asset_code      = EXCLUDED.sell_asset_code,
     sell_asset_issuer    = EXCLUDED.sell_asset_issuer,
@@ -148,6 +150,7 @@ ON CONFLICT (name) DO UPDATE SET
     buy_anchor_metadata  = EXCLUDED.buy_anchor_metadata,
     buy_verified_status  = EXCLUDED.buy_verified_status,
     verification_date    = EXCLUDED.verification_date,
+    target_usd_value     = EXCLUDED.target_usd_value,
     enabled              = EXCLUDED.enabled,
     updated_at           = NOW()
 RETURNING id`
@@ -158,7 +161,7 @@ RETURNING id`
 		c.BuyAssetCode, c.BuyAssetIssuer,
 		c.SellDomain, c.SellAnchorMetadata, c.SellVerifiedStatus,
 		c.BuyDomain, c.BuyAnchorMetadata, c.BuyVerifiedStatus,
-		c.VerificationDate, c.Enabled,
+		c.VerificationDate, c.TargetUSDValue, c.Enabled,
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("upsert corridor %q: %w", c.Name, err)
@@ -172,7 +175,7 @@ func (s *Store) ListCorridors(ctx context.Context) ([]Corridor, error) {
 SELECT id, name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
        sell_domain, sell_anchor_metadata, sell_verified_status,
        buy_domain, buy_anchor_metadata, buy_verified_status,
-       verification_date, enabled, created_at, updated_at
+       verification_date, target_usd_value, enabled, created_at, updated_at
 FROM corridors
 WHERE enabled = TRUE
 ORDER BY id`
@@ -191,7 +194,7 @@ ORDER BY id`
 			&c.BuyAssetCode, &c.BuyAssetIssuer,
 			&c.SellDomain, &c.SellAnchorMetadata, &c.SellVerifiedStatus,
 			&c.BuyDomain, &c.BuyAnchorMetadata, &c.BuyVerifiedStatus,
-			&c.VerificationDate, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
+			&c.VerificationDate, &c.TargetUSDValue, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning corridor: %w", err)
 		}
@@ -206,7 +209,7 @@ func (s *Store) GetCorridor(ctx context.Context, id int) (*Corridor, error) {
 SELECT id, name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
        sell_domain, sell_anchor_metadata, sell_verified_status,
        buy_domain, buy_anchor_metadata, buy_verified_status,
-       verification_date, enabled, created_at, updated_at
+       verification_date, target_usd_value, enabled, created_at, updated_at
 FROM corridors WHERE id = $1`
 
 	var c Corridor
@@ -215,7 +218,7 @@ FROM corridors WHERE id = $1`
 		&c.BuyAssetCode, &c.BuyAssetIssuer,
 		&c.SellDomain, &c.SellAnchorMetadata, &c.SellVerifiedStatus,
 		&c.BuyDomain, &c.BuyAnchorMetadata, &c.BuyVerifiedStatus,
-		&c.VerificationDate, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
+		&c.VerificationDate, &c.TargetUSDValue, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -230,9 +233,9 @@ FROM corridors WHERE id = $1`
 func (s *Store) InsertMeasurement(ctx context.Context, m Measurement) (int64, error) {
 	const q = `
 INSERT INTO measurements
-    (corridor_id, measured_at, sell_amount, received_amount, loss_pct,
+    (corridor_id, measured_at, target_usd_value, sell_amount, received_amount, loss_pct,
      reference_rate, reference_src, integrity_state, path_found, raw_response, error_msg)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 RETURNING id`
 
 	var rawJSON interface{}
@@ -242,7 +245,7 @@ RETURNING id`
 
 	var id int64
 	err := s.db.QueryRowContext(ctx, q,
-		m.CorridorID, m.MeasuredAt, m.SellAmount,
+		m.CorridorID, m.MeasuredAt, m.TargetUSDValue, m.SellAmount,
 		m.ReceivedAmount, m.LossPct,
 		m.ReferenceRate, m.ReferenceSrc,
 		string(m.IntegrityState), m.PathFound,
@@ -257,7 +260,7 @@ RETURNING id`
 // LatestMeasurement returns the most recent measurement for a corridor, or nil if none.
 func (s *Store) LatestMeasurement(ctx context.Context, corridorID int) (*Measurement, error) {
 	const q = `
-SELECT id, corridor_id, measured_at, sell_amount, received_amount, loss_pct,
+SELECT id, corridor_id, measured_at, target_usd_value, sell_amount, received_amount, loss_pct,
        reference_rate, reference_src, integrity_state, path_found, raw_response, error_msg
 FROM measurements
 WHERE corridor_id = $1
@@ -270,7 +273,7 @@ LIMIT 1`
 // ListMeasurements returns measurements for a corridor, newest first, with optional limit.
 func (s *Store) ListMeasurements(ctx context.Context, corridorID, limit, offset int) ([]Measurement, error) {
 	const q = `
-SELECT id, corridor_id, measured_at, sell_amount, received_amount, loss_pct,
+SELECT id, corridor_id, measured_at, target_usd_value, sell_amount, received_amount, loss_pct,
        reference_rate, reference_src, integrity_state, path_found, raw_response, error_msg
 FROM measurements
 WHERE corridor_id = $1
@@ -303,7 +306,7 @@ func (s *Store) scanMeasurement(row rower) (*Measurement, error) {
 	var m Measurement
 	var state string
 	err := row.Scan(
-		&m.ID, &m.CorridorID, &m.MeasuredAt, &m.SellAmount,
+		&m.ID, &m.CorridorID, &m.MeasuredAt, &m.TargetUSDValue, &m.SellAmount,
 		&m.ReceivedAmount, &m.LossPct,
 		&m.ReferenceRate, &m.ReferenceSrc,
 		&state, &m.PathFound, &m.RawResponse, &m.ErrorMsg,

@@ -27,8 +27,9 @@ type CorridorConfig struct {
 	BuyVerifiedStatus    string `yaml:"buy_verified_status"`    // "live" | "pending" | "unverifiable" | "unknown"
 
 	// Shared
-	VerificationDate string `yaml:"verification_date"` // YYYY-MM-DD
-	Enabled          bool   `yaml:"enabled"`
+	VerificationDate string  `yaml:"verification_date"` // YYYY-MM-DD
+	TargetUSDValue   float64 `yaml:"target_usd_value"`  // Economic trade size benchmark in USD (default: 100.0)
+	Enabled          bool    `yaml:"enabled"`
 }
 
 // CorridorsFile is the top-level structure of corridors.yaml.

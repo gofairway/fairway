@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS corridors (
 
     -- Shared: all seed assets verified on the same date (3rd Oct 2026)
     verification_date       DATE,
+    target_usd_value        NUMERIC(18, 2) NOT NULL DEFAULT 100.0,
 
     enabled                 BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS measurements (
     id              BIGSERIAL   PRIMARY KEY,
     corridor_id     INT         NOT NULL REFERENCES corridors(id) ON DELETE CASCADE,
     measured_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    sell_amount     NUMERIC(28, 7) NOT NULL,
+    target_usd_value NUMERIC(18, 2),                  -- trade size benchmark in USD
+    sell_amount     NUMERIC(28, 7) NOT NULL,          -- dynamic sell amount tested on Horizon
     received_amount NUMERIC(28, 7),                   -- NULL when no path found
     loss_pct        NUMERIC(10, 4),                   -- NULL when no path found
     reference_rate  NUMERIC(28, 10),                  -- independent FX reference

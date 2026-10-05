@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/gofairway/fairway/internal/measure"
@@ -68,7 +67,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 	}
 }
 
-// measureAll iterates over every enabled corridor and measures it concurrently.
+// measureAll iterates over every enabled corridor and measures them sequentially (one at a time).
 func (s *Scheduler) measureAll(ctx context.Context) {
 	corridors, err := s.store.ListCorridors(ctx)
 	if err != nil {
@@ -80,16 +79,14 @@ func (s *Scheduler) measureAll(ctx context.Context) {
 		return
 	}
 
-	var wg sync.WaitGroup
 	for _, c := range corridors {
-		c := c
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		select {
+		case <-ctx.Done():
+			return
+		default:
 			s.measureOne(ctx, c)
-		}()
+		}
 	}
-	wg.Wait()
 }
 
 // measureOne measures a single corridor, persists the result, and fires webhooks on state change.
@@ -103,6 +100,7 @@ func (s *Scheduler) measureOne(ctx context.Context, corridor store.Corridor) {
 	m := store.Measurement{
 		CorridorID:     corridor.ID,
 		MeasuredAt:     result.MeasuredAt,
+		TargetUSDValue: result.TargetUSDValue,
 		SellAmount:     result.SellAmount,
 		ReceivedAmount: result.ReceivedAmount,
 		LossPct:        result.LossPct,

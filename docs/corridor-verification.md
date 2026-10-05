@@ -39,5 +39,5 @@ zero funded trustlines — confirmed NOT the real anchor, excluded.
 
 ## Known Limitations
 
-- **Fixed Trade Size on Thin Assets**: Single fixed-size (100 unit) measurements on thin assets may not reflect real-world execution at typical remittance volumes.
-- **Multi-Hop Path Routing Artifacts**: Multi-hop paths through intermediary assets (such as AQUA, native XLM, or USDC) can show favorable or unfavorable pricing that wouldn't hold at scale due to shallow order-book depth. Large negative loss percentages observed on low-volume corridors (like NGNC pairs) are a known consequence of this routing behavior rather than genuine institutional pricing.
+- **USD-Equivalent Trade Sizing**: Measurement trade sizes represent real economic value via `target_usd_value` (default: $100.0 USD-equivalent) rather than flat asset unit counts. The monitor dynamically computes the required sell amount using live FX reference rates (e.g. ~$100 USD ≈ 133,333 NGNC), preventing low-unit dust tests from distorting liquidity measurements.
+- **Multi-Hop Path Routing Artifacts**: On genuinely thin corridors, multi-hop paths through intermediary assets (such as AQUA, native XLM, or USDC) can show favorable or unfavorable pricing that wouldn't hold at scale due to shallow order-book depth. Even with economic sizing, illiquid books will exhibit significant slippage across hops.

@@ -3,6 +3,10 @@
 # sell_asset / buy_asset: Stellar asset codes and issuers.
 # Use empty string for issuer when the asset is native XLM.
 #
+# target_usd_value: Economic trade size in USD equivalent (default: 100.0).
+# The monitor dynamically scales sell_amount using live FX reference rates
+# so thin corridors are tested at realistic payment size rather than dust units.
+#
 # Per-leg verification fields (sell_* and buy_*) reflect each asset's
 # anchor metadata independently, as recorded in docs/corridor-verification.md.
 # verification_date is shared — all three seed assets were verified 2026-10-03.
@@ -13,6 +17,8 @@ corridors:
     sell_asset_issuer:      "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
     buy_asset_code:         "USDC"
     buy_asset_issuer:       "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+
+    target_usd_value:       100.0
 
     # NGNC sell leg — full SEP-1 metadata present, status explicitly "live"
     sell_domain:            "ngnc.online"
@@ -34,6 +40,8 @@ corridors:
     buy_asset_code:         "EURC"
     buy_asset_issuer:       "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
 
+    target_usd_value:       100.0
+
     # NGNC sell leg — full SEP-1 metadata present, status explicitly "live"
     sell_domain:            "ngnc.online"
     sell_anchor_metadata:   "full"
@@ -52,6 +60,8 @@ corridors:
     sell_asset_issuer:      "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
     buy_asset_code:         "EURC"
     buy_asset_issuer:       "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+
+    target_usd_value:       100.0
 
     # USDC sell leg — no explicit status field in stellar.toml;
     # confirmed live via 119M+ on-chain payments + attestation_of_reserve link
