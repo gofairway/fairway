@@ -1,0 +1,38 @@
+# Fairway corridor configuration
+# Each entry defines a payment corridor that Fairway will monitor.
+# sell_asset / buy_asset: Stellar asset codes and issuers.
+# Use empty string for issuer when the asset is native XLM.
+
+corridors:
+  - name: "NGNC/USDC"
+    sell_asset_code:   "NGNC"
+    sell_asset_issuer: "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
+    buy_asset_code:    "USDC"
+    buy_asset_issuer:  "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+    domain:            "ngnc.online"
+    anchor_metadata:   "full"
+    verification_date: "2026-10-03"
+    verified_status:   "live"
+    enabled:           true
+
+  - name: "NGNC/EURC"
+    sell_asset_code:   "NGNC"
+    sell_asset_issuer: "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
+    buy_asset_code:    "EURC"
+    buy_asset_issuer:  "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+    domain:            "ngnc.online"
+    anchor_metadata:   "partial"        # buy-side anchor has no SEP-1 metadata
+    verification_date: "2026-10-03"
+    verified_status:   "live"
+    enabled:           true
+
+  - name: "USDC/EURC"
+    sell_asset_code:   "USDC"
+    sell_asset_issuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+    buy_asset_code:    "EURC"
+    buy_asset_issuer:  "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+    domain:            "centre.io"
+    anchor_metadata:   "partial"        # EURC side flagged: no home_domain / no stellar.toml
+    verification_date: "2026-10-03"
+    verified_status:   "live"
+    enabled:           true
