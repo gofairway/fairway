@@ -56,20 +56,30 @@ type MeasureResult struct {
 	ErrorMsg       *string
 }
 
-// assetParam builds the asset_type / asset_code / asset_issuer query params for Horizon.
-func assetParam(prefix, code, issuer string) url.Values {
+// sourceAssetParams builds the source_asset_type/code/issuer query params for Horizon strict-send.
+func sourceAssetParams(code, issuer string) url.Values {
 	v := url.Values{}
 	if code == "XLM" && issuer == "" {
-		v.Set(prefix+"asset_type", "native")
+		v.Set("source_asset_type", "native")
 	} else {
-		v.Set(prefix+"asset_type", "credit_alphanum4")
 		if len(code) > 4 {
-			v.Set(prefix+"asset_type", "credit_alphanum12")
+			v.Set("source_asset_type", "credit_alphanum12")
+		} else {
+			v.Set("source_asset_type", "credit_alphanum4")
 		}
-		v.Set(prefix+"asset_code", code)
-		v.Set(prefix+"asset_issuer", issuer)
+		v.Set("source_asset_code", code)
+		v.Set("source_asset_issuer", issuer)
 	}
 	return v
+}
+
+// destinationAssetStr encodes the destination asset in the CODE:ISSUER format
+// required by /paths/strict-send's destination_assets parameter.
+func destinationAssetStr(code, issuer string) string {
+	if code == "XLM" && issuer == "" {
+		return "native"
+	}
+	return code + ":" + issuer
 }
 
 // Measure calls Horizon strict-send pathfinding for a corridor and returns the best path result.
@@ -81,17 +91,16 @@ func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, se
 
 	// Build query: paths/strict-send
 	// https://developers.stellar.org/api/horizon/resources/list-strict-send-payment-paths
+	//
+	// Source asset: separate source_asset_type / source_asset_code / source_asset_issuer params.
+	// Destination:  a single destination_assets=CODE:ISSUER param (Horizon strict-send spec).
 	params := url.Values{}
 	params.Set("source_amount", strconv.FormatFloat(sellAmount, 'f', 7, 64))
 
-	// sell (source) asset
-	for k, vs := range assetParam("source_", corridor.SellAssetCode, corridor.SellAssetIssuer) {
+	for k, vs := range sourceAssetParams(corridor.SellAssetCode, corridor.SellAssetIssuer) {
 		params[k] = vs
 	}
-	// buy (destination) asset
-	for k, vs := range assetParam("destination_", corridor.BuyAssetCode, corridor.BuyAssetIssuer) {
-		params[k] = vs
-	}
+	params.Set("destination_assets", destinationAssetStr(corridor.BuyAssetCode, corridor.BuyAssetIssuer))
 
 	reqURL := fmt.Sprintf("%s/paths/strict-send?%s", h.baseURL, params.Encode())
 

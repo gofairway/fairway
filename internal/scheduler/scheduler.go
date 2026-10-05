@@ -112,6 +112,13 @@ func (s *Scheduler) measureOne(ctx context.Context, corridor store.Corridor) {
 		ErrorMsg:       result.ErrorMsg,
 	}
 
+	// Detect state change against previous measurement before persisting the new one.
+	prev, err := s.store.LatestMeasurement(ctx, corridor.ID)
+	if err != nil {
+		log.Error("fetching previous measurement", "err", err)
+		return
+	}
+
 	measurementID, err := s.store.InsertMeasurement(ctx, m)
 	if err != nil {
 		log.Error("inserting measurement", "err", err)
@@ -128,15 +135,8 @@ func (s *Scheduler) measureOne(ctx context.Context, corridor store.Corridor) {
 		"loss_pct", lossPctStr,
 	)
 
-	// Detect state change against previous measurement.
-	prev, err := s.store.LatestMeasurement(ctx, corridor.ID)
-	if err != nil {
-		log.Error("fetching previous measurement", "err", err)
-		return
-	}
-
 	var prevState store.IntegrityState
-	if prev == nil || prev.ID == measurementID {
+	if prev == nil {
 		// First ever measurement — record as a transition from unknown.
 		prevState = store.StateUnknown
 	} else {
