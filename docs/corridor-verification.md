@@ -36,3 +36,8 @@ zero funded trustlines — confirmed NOT the real anchor, excluded.
   $4M+ supply. This is itself a risk signal Fairway should surface.
 - Authorization flags: revocable
 - Verified: 3rd October 2026
+
+## Known Limitations
+
+- **Fixed Trade Size on Thin Assets**: Single fixed-size (100 unit) measurements on thin assets may not reflect real-world execution at typical remittance volumes.
+- **Multi-Hop Path Routing Artifacts**: Multi-hop paths through intermediary assets (such as AQUA, native XLM, or USDC) can show favorable or unfavorable pricing that wouldn't hold at scale due to shallow order-book depth. Large negative loss percentages observed on low-volume corridors (like NGNC pairs) are a known consequence of this routing behavior rather than genuine institutional pricing.

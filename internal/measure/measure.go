@@ -201,8 +201,10 @@ func truncate(s string, max int) string {
 // Threshold reasoning:
 // - loss_pct < degradedThreshold (default: 2.5%): Usable.
 //   Normal payment corridor execution. Typical retail and anchor spreads on Stellar range from 0.1% to 2.0%.
-//   Negative loss means the DEX execution is at or better than the mid-market benchmark (common
-//   when official central bank fixing lags parallel/market rates, e.g. NGN).
+//   Note: Large negative loss_pct on thin/illiquid assets (like NGNC) likely reflects multi-hop DEX
+//   routing across intermediary pools (e.g. AQUA, native XLM, USDC) and shallow top-of-book effects
+//   at the tested trade size (e.g. 100 units), rather than genuine favorable pricing. This is a
+//   known measurement-methodology limitation on low-liquidity assets, not a settled explanation.
 // - degradedThreshold <= loss_pct < unusableThreshold (default: 2.5% to 5.0%): Degraded.
 //   Pricing has widened beyond normal spreads; liquidity is shallow or slippage is elevated.
 //   Payments will incur notable loss but can technically still route.
