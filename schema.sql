@@ -2,19 +2,29 @@
 -- Run once against a fresh Postgres database to initialise all tables.
 
 CREATE TABLE IF NOT EXISTS corridors (
-    id                  SERIAL PRIMARY KEY,
-    name                TEXT        NOT NULL UNIQUE,   -- e.g. "NGNC/USD"
-    sell_asset_code     TEXT        NOT NULL,
-    sell_asset_issuer   TEXT        NOT NULL,
-    buy_asset_code      TEXT        NOT NULL,
-    buy_asset_issuer    TEXT        NOT NULL,          -- empty string for native XLM
-    domain              TEXT        NOT NULL DEFAULT '',
-    anchor_metadata     TEXT        NOT NULL DEFAULT 'none', -- 'full' | 'partial' | 'none'
-    verification_date   DATE,
-    verified_status     TEXT        NOT NULL DEFAULT 'unknown', -- 'live' | 'pending' | 'unverifiable' | 'unknown'
-    enabled             BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                      SERIAL PRIMARY KEY,
+    name                    TEXT        NOT NULL UNIQUE,   -- e.g. "NGNC/USDC"
+    sell_asset_code         TEXT        NOT NULL,
+    sell_asset_issuer       TEXT        NOT NULL,
+    buy_asset_code          TEXT        NOT NULL,
+    buy_asset_issuer        TEXT        NOT NULL,          -- empty string for native XLM
+
+    -- Sell-leg anchor verification (independently assessed per asset)
+    sell_domain             TEXT        NOT NULL DEFAULT '',
+    sell_anchor_metadata    TEXT        NOT NULL DEFAULT 'none',   -- 'full' | 'none'
+    sell_verified_status    TEXT        NOT NULL DEFAULT 'unknown', -- 'live' | 'pending' | 'unverifiable' | 'unknown'
+
+    -- Buy-leg anchor verification (independently assessed per asset)
+    buy_domain              TEXT        NOT NULL DEFAULT '',
+    buy_anchor_metadata     TEXT        NOT NULL DEFAULT 'none',   -- 'full' | 'none'
+    buy_verified_status     TEXT        NOT NULL DEFAULT 'unknown', -- 'live' | 'pending' | 'unverifiable' | 'unknown'
+
+    -- Shared: all seed assets verified on the same date (3rd Oct 2026)
+    verification_date       DATE,
+
+    enabled                 BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- integrity_state values: 'usable' | 'degraded' | 'unusable' | 'unknown'

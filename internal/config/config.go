@@ -10,15 +10,24 @@ import (
 
 // CorridorConfig is a single corridor entry from corridors.yaml.
 type CorridorConfig struct {
-	Name             string `yaml:"name"`
-	SellAssetCode    string `yaml:"sell_asset_code"`
-	SellAssetIssuer  string `yaml:"sell_asset_issuer"`
-	BuyAssetCode     string `yaml:"buy_asset_code"`
-	BuyAssetIssuer   string `yaml:"buy_asset_issuer"`
-	Domain           string `yaml:"domain"`
-	AnchorMetadata   string `yaml:"anchor_metadata"`  // "full" | "partial" | "none"
+	Name            string `yaml:"name"`
+	SellAssetCode   string `yaml:"sell_asset_code"`
+	SellAssetIssuer string `yaml:"sell_asset_issuer"`
+	BuyAssetCode    string `yaml:"buy_asset_code"`
+	BuyAssetIssuer  string `yaml:"buy_asset_issuer"`
+
+	// Sell-leg anchor verification
+	SellDomain           string `yaml:"sell_domain"`
+	SellAnchorMetadata   string `yaml:"sell_anchor_metadata"`   // "full" | "none"
+	SellVerifiedStatus   string `yaml:"sell_verified_status"`   // "live" | "pending" | "unverifiable" | "unknown"
+
+	// Buy-leg anchor verification
+	BuyDomain            string `yaml:"buy_domain"`
+	BuyAnchorMetadata    string `yaml:"buy_anchor_metadata"`    // "full" | "none"
+	BuyVerifiedStatus    string `yaml:"buy_verified_status"`    // "live" | "pending" | "unverifiable" | "unknown"
+
+	// Shared
 	VerificationDate string `yaml:"verification_date"` // YYYY-MM-DD
-	VerifiedStatus   string `yaml:"verified_status"`   // "live" | "pending" | "unverifiable"
 	Enabled          bool   `yaml:"enabled"`
 }
 

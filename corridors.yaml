@@ -2,37 +2,67 @@
 # Each entry defines a payment corridor that Fairway will monitor.
 # sell_asset / buy_asset: Stellar asset codes and issuers.
 # Use empty string for issuer when the asset is native XLM.
+#
+# Per-leg verification fields (sell_* and buy_*) reflect each asset's
+# anchor metadata independently, as recorded in docs/corridor-verification.md.
+# verification_date is shared — all three seed assets were verified 2026-10-03.
 
 corridors:
   - name: "NGNC/USDC"
-    sell_asset_code:   "NGNC"
-    sell_asset_issuer: "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
-    buy_asset_code:    "USDC"
-    buy_asset_issuer:  "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-    domain:            "ngnc.online"
-    anchor_metadata:   "full"
+    sell_asset_code:        "NGNC"
+    sell_asset_issuer:      "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
+    buy_asset_code:         "USDC"
+    buy_asset_issuer:       "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+
+    # NGNC sell leg — full SEP-1 metadata present, status explicitly "live"
+    sell_domain:            "ngnc.online"
+    sell_anchor_metadata:   "full"
+    sell_verified_status:   "live"
+
+    # USDC buy leg — no explicit status field in stellar.toml;
+    # confirmed live via 119M+ on-chain payments + attestation_of_reserve link
+    buy_domain:             "centre.io"
+    buy_anchor_metadata:    "full"
+    buy_verified_status:    "live"
+
     verification_date: "2026-10-03"
-    verified_status:   "live"
     enabled:           true
 
   - name: "NGNC/EURC"
-    sell_asset_code:   "NGNC"
-    sell_asset_issuer: "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
-    buy_asset_code:    "EURC"
-    buy_asset_issuer:  "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
-    domain:            ""               # EURC issuer has no home_domain
-    anchor_metadata:   "none"           # no stellar.toml exists for EURC issuer
+    sell_asset_code:        "NGNC"
+    sell_asset_issuer:      "GASBV6W7GGED66MXEVC7YZHTWWYMSVYEY35USF2HJZBLABLYIFQGXZY6"
+    buy_asset_code:         "EURC"
+    buy_asset_issuer:       "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+
+    # NGNC sell leg — full SEP-1 metadata present, status explicitly "live"
+    sell_domain:            "ngnc.online"
+    sell_anchor_metadata:   "full"
+    sell_verified_status:   "live"
+
+    # EURC buy leg — no home_domain set, no stellar.toml exists
+    buy_domain:             ""
+    buy_anchor_metadata:    "none"
+    buy_verified_status:    "unverifiable"
+
     verification_date: "2026-10-03"
-    verified_status:   "unverifiable"   # per docs/corridor-verification.md
     enabled:           true
 
   - name: "USDC/EURC"
-    sell_asset_code:   "USDC"
-    sell_asset_issuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-    buy_asset_code:    "EURC"
-    buy_asset_issuer:  "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
-    domain:            ""               # EURC issuer has no home_domain
-    anchor_metadata:   "none"           # no stellar.toml exists for EURC issuer
+    sell_asset_code:        "USDC"
+    sell_asset_issuer:      "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+    buy_asset_code:         "EURC"
+    buy_asset_issuer:       "GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+
+    # USDC sell leg — no explicit status field in stellar.toml;
+    # confirmed live via 119M+ on-chain payments + attestation_of_reserve link
+    sell_domain:            "centre.io"
+    sell_anchor_metadata:   "full"
+    sell_verified_status:   "live"
+
+    # EURC buy leg — no home_domain set, no stellar.toml exists
+    buy_domain:             ""
+    buy_anchor_metadata:    "none"
+    buy_verified_status:    "unverifiable"
+
     verification_date: "2026-10-03"
-    verified_status:   "unverifiable"   # per docs/corridor-verification.md
     enabled:           true

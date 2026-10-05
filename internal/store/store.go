@@ -23,19 +23,52 @@ const (
 
 // Corridor mirrors the corridors table row.
 type Corridor struct {
-	ID               int
-	Name             string
-	SellAssetCode    string
-	SellAssetIssuer  string
-	BuyAssetCode     string
-	BuyAssetIssuer   string
-	Domain           string
-	AnchorMetadata   string
+	ID              int
+	Name            string
+	SellAssetCode   string
+	SellAssetIssuer string
+	BuyAssetCode    string
+	BuyAssetIssuer  string
+
+	// Sell-leg anchor verification
+	SellDomain          string
+	SellAnchorMetadata  string
+	SellVerifiedStatus  string
+
+	// Buy-leg anchor verification
+	BuyDomain          string
+	BuyAnchorMetadata  string
+	BuyVerifiedStatus  string
+
+	// Shared
 	VerificationDate *time.Time
-	VerifiedStatus   string
 	Enabled          bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+}
+
+// EffectiveVerifiedStatus returns the worst-case verified status across both legs.
+// A corridor is only as trustworthy as its least-verified asset:
+// unverifiable > unknown > pending > live (where unverifiable is worst).
+func (c Corridor) EffectiveVerifiedStatus() string {
+	rank := map[string]int{
+		"unverifiable": 0,
+		"unknown":      1,
+		"pending":      2,
+		"live":         3,
+	}
+	sellR, ok := rank[c.SellVerifiedStatus]
+	if !ok {
+		sellR = rank["unknown"]
+	}
+	buyR, ok := rank[c.BuyVerifiedStatus]
+	if !ok {
+		buyR = rank["unknown"]
+	}
+	if sellR <= buyR {
+		return c.SellVerifiedStatus
+	}
+	return c.BuyVerifiedStatus
 }
 
 // Measurement mirrors the measurements table row.
@@ -99,27 +132,33 @@ func (s *Store) UpsertCorridor(ctx context.Context, c Corridor) (int, error) {
 	const q = `
 INSERT INTO corridors
     (name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
-     domain, anchor_metadata, verification_date, verified_status, enabled, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+     sell_domain, sell_anchor_metadata, sell_verified_status,
+     buy_domain, buy_anchor_metadata, buy_verified_status,
+     verification_date, enabled, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
 ON CONFLICT (name) DO UPDATE SET
-    sell_asset_code   = EXCLUDED.sell_asset_code,
-    sell_asset_issuer = EXCLUDED.sell_asset_issuer,
-    buy_asset_code    = EXCLUDED.buy_asset_code,
-    buy_asset_issuer  = EXCLUDED.buy_asset_issuer,
-    domain            = EXCLUDED.domain,
-    anchor_metadata   = EXCLUDED.anchor_metadata,
-    verification_date = EXCLUDED.verification_date,
-    verified_status   = EXCLUDED.verified_status,
-    enabled           = EXCLUDED.enabled,
-    updated_at        = NOW()
+    sell_asset_code      = EXCLUDED.sell_asset_code,
+    sell_asset_issuer    = EXCLUDED.sell_asset_issuer,
+    buy_asset_code       = EXCLUDED.buy_asset_code,
+    buy_asset_issuer     = EXCLUDED.buy_asset_issuer,
+    sell_domain          = EXCLUDED.sell_domain,
+    sell_anchor_metadata = EXCLUDED.sell_anchor_metadata,
+    sell_verified_status = EXCLUDED.sell_verified_status,
+    buy_domain           = EXCLUDED.buy_domain,
+    buy_anchor_metadata  = EXCLUDED.buy_anchor_metadata,
+    buy_verified_status  = EXCLUDED.buy_verified_status,
+    verification_date    = EXCLUDED.verification_date,
+    enabled              = EXCLUDED.enabled,
+    updated_at           = NOW()
 RETURNING id`
 
 	var id int
 	err := s.db.QueryRowContext(ctx, q,
 		c.Name, c.SellAssetCode, c.SellAssetIssuer,
 		c.BuyAssetCode, c.BuyAssetIssuer,
-		c.Domain, c.AnchorMetadata, c.VerificationDate,
-		c.VerifiedStatus, c.Enabled,
+		c.SellDomain, c.SellAnchorMetadata, c.SellVerifiedStatus,
+		c.BuyDomain, c.BuyAnchorMetadata, c.BuyVerifiedStatus,
+		c.VerificationDate, c.Enabled,
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("upsert corridor %q: %w", c.Name, err)
@@ -131,7 +170,9 @@ RETURNING id`
 func (s *Store) ListCorridors(ctx context.Context) ([]Corridor, error) {
 	const q = `
 SELECT id, name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
-       domain, anchor_metadata, verification_date, verified_status, enabled, created_at, updated_at
+       sell_domain, sell_anchor_metadata, sell_verified_status,
+       buy_domain, buy_anchor_metadata, buy_verified_status,
+       verification_date, enabled, created_at, updated_at
 FROM corridors
 WHERE enabled = TRUE
 ORDER BY id`
@@ -148,8 +189,9 @@ ORDER BY id`
 		if err := rows.Scan(
 			&c.ID, &c.Name, &c.SellAssetCode, &c.SellAssetIssuer,
 			&c.BuyAssetCode, &c.BuyAssetIssuer,
-			&c.Domain, &c.AnchorMetadata, &c.VerificationDate,
-			&c.VerifiedStatus, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
+			&c.SellDomain, &c.SellAnchorMetadata, &c.SellVerifiedStatus,
+			&c.BuyDomain, &c.BuyAnchorMetadata, &c.BuyVerifiedStatus,
+			&c.VerificationDate, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning corridor: %w", err)
 		}
@@ -162,15 +204,18 @@ ORDER BY id`
 func (s *Store) GetCorridor(ctx context.Context, id int) (*Corridor, error) {
 	const q = `
 SELECT id, name, sell_asset_code, sell_asset_issuer, buy_asset_code, buy_asset_issuer,
-       domain, anchor_metadata, verification_date, verified_status, enabled, created_at, updated_at
+       sell_domain, sell_anchor_metadata, sell_verified_status,
+       buy_domain, buy_anchor_metadata, buy_verified_status,
+       verification_date, enabled, created_at, updated_at
 FROM corridors WHERE id = $1`
 
 	var c Corridor
 	err := s.db.QueryRowContext(ctx, q, id).Scan(
 		&c.ID, &c.Name, &c.SellAssetCode, &c.SellAssetIssuer,
 		&c.BuyAssetCode, &c.BuyAssetIssuer,
-		&c.Domain, &c.AnchorMetadata, &c.VerificationDate,
-		&c.VerifiedStatus, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
+		&c.SellDomain, &c.SellAnchorMetadata, &c.SellVerifiedStatus,
+		&c.BuyDomain, &c.BuyAnchorMetadata, &c.BuyVerifiedStatus,
+		&c.VerificationDate, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

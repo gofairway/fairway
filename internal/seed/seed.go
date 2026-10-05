@@ -31,11 +31,14 @@ func Corridors(ctx context.Context, st *store.Store, corridors []config.Corridor
 			SellAssetIssuer:  cc.SellAssetIssuer,
 			BuyAssetCode:     cc.BuyAssetCode,
 			BuyAssetIssuer:   cc.BuyAssetIssuer,
-			Domain:           cc.Domain,
-			AnchorMetadata:   cc.AnchorMetadata,
-			VerificationDate: verDate,
-			VerifiedStatus:   cc.VerifiedStatus,
-			Enabled:          cc.Enabled,
+			SellDomain:         cc.SellDomain,
+			SellAnchorMetadata: cc.SellAnchorMetadata,
+			SellVerifiedStatus: cc.SellVerifiedStatus,
+			BuyDomain:          cc.BuyDomain,
+			BuyAnchorMetadata:  cc.BuyAnchorMetadata,
+			BuyVerifiedStatus:  cc.BuyVerifiedStatus,
+			VerificationDate:   verDate,
+			Enabled:            cc.Enabled,
 		}
 
 		id, err := st.UpsertCorridor(ctx, row)
