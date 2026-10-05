@@ -15,6 +15,7 @@ import (
 	"github.com/gofairway/fairway/internal/api"
 	"github.com/gofairway/fairway/internal/config"
 	"github.com/gofairway/fairway/internal/measure"
+	"github.com/gofairway/fairway/internal/reference"
 	"github.com/gofairway/fairway/internal/scheduler"
 	"github.com/gofairway/fairway/internal/seed"
 	"github.com/gofairway/fairway/internal/store"
@@ -64,7 +65,8 @@ func run(logger *slog.Logger) error {
 	logger.Info("corridors seeded", "count", n)
 
 	// --- Components ---
-	horizonClient := measure.NewHorizonClient(cfg.HorizonURL)
+	refFetcher := reference.NewFrankfurterFetcher(cfg.ReferenceRateURL)
+	horizonClient := measure.NewHorizonClient(cfg.HorizonURL, refFetcher)
 	dispatcher := webhook.NewDispatcher(cfg.WebhookURL, logger)
 	sched := scheduler.New(
 		st, horizonClient, dispatcher, logger,

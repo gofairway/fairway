@@ -106,6 +106,8 @@ func (s *Scheduler) measureOne(ctx context.Context, corridor store.Corridor) {
 		SellAmount:     result.SellAmount,
 		ReceivedAmount: result.ReceivedAmount,
 		LossPct:        result.LossPct,
+		ReferenceRate:  result.ReferenceRate,
+		ReferenceSrc:   result.ReferenceSrc,
 		IntegrityState: newState,
 		PathFound:      result.PathFound,
 		RawResponse:    result.RawResponse,

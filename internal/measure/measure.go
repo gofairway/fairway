@@ -11,19 +11,23 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gofairway/fairway/internal/reference"
 	"github.com/gofairway/fairway/internal/store"
 )
 
-// HorizonClient wraps Stellar Horizon strict-receive pathfinding.
+// HorizonClient wraps Stellar Horizon strict-receive pathfinding and mid-market rate benchmarking.
 type HorizonClient struct {
 	baseURL    string
+	refFetcher reference.Fetcher
 	httpClient *http.Client
 }
 
-// NewHorizonClient creates a HorizonClient pointing at the given Horizon base URL.
-func NewHorizonClient(baseURL string) *HorizonClient {
+// NewHorizonClient creates a HorizonClient pointing at the given Horizon base URL
+// and configured with a reference rate fetcher for mid-market benchmarking.
+func NewHorizonClient(baseURL string, refFetcher reference.Fetcher) *HorizonClient {
 	return &HorizonClient{
-		baseURL: baseURL,
+		baseURL:    baseURL,
+		refFetcher: refFetcher,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -51,6 +55,8 @@ type MeasureResult struct {
 	SellAmount     float64
 	ReceivedAmount *float64
 	LossPct        *float64
+	ReferenceRate  *float64
+	ReferenceSrc   *string
 	PathFound      bool
 	RawResponse    json.RawMessage
 	ErrorMsg       *string
@@ -82,18 +88,29 @@ func destinationAssetStr(code, issuer string) string {
 	return code + ":" + issuer
 }
 
-// Measure calls Horizon strict-send pathfinding for a corridor and returns the best path result.
+// Measure calls Horizon strict-send pathfinding for a corridor, fetches the independent
+// mid-market reference rate, computes loss_pct, and returns the result.
 func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, sellAmount float64) MeasureResult {
 	result := MeasureResult{
 		MeasuredAt: time.Now().UTC(),
 		SellAmount: sellAmount,
 	}
 
-	// Build query: paths/strict-send
-	// https://developers.stellar.org/api/horizon/resources/list-strict-send-payment-paths
-	//
-	// Source asset: separate source_asset_type / source_asset_code / source_asset_issuer params.
-	// Destination:  a single destination_assets=CODE:ISSUER param (Horizon strict-send spec).
+	// 1. Fetch independent mid-market reference rate.
+	fromCur := reference.AssetToCurrency(corridor.SellAssetCode)
+	toCur := reference.AssetToCurrency(corridor.BuyAssetCode)
+	if h.refFetcher != nil {
+		rate, src, err := h.refFetcher.FetchRate(ctx, fromCur, toCur)
+		if err != nil {
+			msg := fmt.Sprintf("fetching reference rate for %s/%s: %v", fromCur, toCur, err)
+			result.ErrorMsg = &msg
+		} else {
+			result.ReferenceRate = &rate
+			result.ReferenceSrc = &src
+		}
+	}
+
+	// 2. Build and send Horizon query: paths/strict-send
 	params := url.Values{}
 	params.Set("source_amount", strconv.FormatFloat(sellAmount, 'f', 7, 64))
 
@@ -142,11 +159,11 @@ func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, se
 	}
 
 	if len(parsed.Embedded.Records) == 0 {
-		// No path found — this is a valid (not error) measurement result.
+		// No path found — this is a valid measurement result (unusable state).
 		return result
 	}
 
-	// Use the first (best) record.
+	// Use the first (best) path record.
 	best := parsed.Embedded.Records[0]
 	received, err := strconv.ParseFloat(best.DestinationAmount, 64)
 	if err != nil {
@@ -158,13 +175,16 @@ func (h *HorizonClient) Measure(ctx context.Context, corridor store.Corridor, se
 	result.PathFound = true
 	result.ReceivedAmount = &received
 
-	// Loss % is relative to the sell amount expressed in the same unit as the
-	// destination.  When a reference rate is available this is computed against
-	// that.  Without one, we compute internal spread vs. expected parity
-	// (i.e. assumes 1:1 as a neutral baseline — callers must apply a reference
-	// rate if they want a meaningful loss figure).
-	loss := (sellAmount - received) / sellAmount * 100
-	result.LossPct = &loss
+	// 3. Compute loss_pct against independent reference rate:
+	// expected_received = sell_amount * reference_rate
+	// loss_pct = (expected_received - received_amount) / expected_received * 100
+	if result.ReferenceRate != nil && *result.ReferenceRate > 0 {
+		expectedReceived := sellAmount * (*result.ReferenceRate)
+		if expectedReceived > 0 {
+			loss := (expectedReceived - received) / expectedReceived * 100
+			result.LossPct = &loss
+		}
+	}
 
 	return result
 }
@@ -176,7 +196,21 @@ func truncate(s string, max int) string {
 	return s[:max] + "…"
 }
 
-// ScoreState converts a loss percentage to an IntegrityState.
+// ScoreState converts a loss percentage to an IntegrityState based on deviation from reference rate.
+//
+// Threshold reasoning:
+// - loss_pct < degradedThreshold (default: 2.5%): Usable.
+//   Normal payment corridor execution. Typical retail and anchor spreads on Stellar range from 0.1% to 2.0%.
+//   Negative loss means the DEX execution is at or better than the mid-market benchmark (common
+//   when official central bank fixing lags parallel/market rates, e.g. NGN).
+// - degradedThreshold <= loss_pct < unusableThreshold (default: 2.5% to 5.0%): Degraded.
+//   Pricing has widened beyond normal spreads; liquidity is shallow or slippage is elevated.
+//   Payments will incur notable loss but can technically still route.
+// - loss_pct >= unusableThreshold (default: 5.0%): Unusable.
+//   Loss exceeding 5% indicates severe illiquidity, de-pegging, or predatory spreads that make
+//   the corridor economically unviable for real-world settlement.
+// - !pathFound or lossPct == nil: Unusable.
+//   No payment path exists on the ledger, or reference rate pricing could not be determined.
 func ScoreState(lossPct *float64, pathFound bool, degradedThreshold, unusableThreshold float64) store.IntegrityState {
 	if !pathFound || lossPct == nil {
 		return store.StateUnusable

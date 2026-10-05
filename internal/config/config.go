@@ -75,10 +75,10 @@ func Load() (*AppConfig, error) {
 		HorizonURL:       env("HORIZON_URL", "https://horizon.stellar.org"),
 		SellAmount:       envFloat("SELL_AMOUNT", 100.0),
 		MeasureInterval:  envDuration("MEASURE_INTERVAL", 5*time.Minute),
-		DegradedLossPct:  envFloat("DEGRADED_LOSS_PCT", 1.0),
+		DegradedLossPct:  envFloat("DEGRADED_LOSS_PCT", 2.5),
 		UnusableLossPct:  envFloat("UNUSABLE_LOSS_PCT", 5.0),
 		WebhookURL:       env("WEBHOOK_URL", ""),
-		ReferenceRateURL: env("REFERENCE_RATE_URL", ""),
+		ReferenceRateURL: env("REFERENCE_RATE_URL", "https://api.frankfurter.dev/v2/rates"),
 		CorridorsFile:    env("CORRIDORS_FILE", "corridors.yaml"),
 		ListenAddr:       env("LISTEN_ADDR", ":8080"),
 	}
