@@ -18,22 +18,11 @@ At a **$100-equivalent trade size**, Fairway measured:
 | ----------- | --------------: | ------------ |
 | NGNC → USDC | **31.19%** | 🔴 Unusable |
 | NGNC → EURC | **30.50%** | 🔴 Unusable |
-| USDC → EURC | **-1.05%** | �� Usable   |
+| USDC → EURC | **-1.05%** | 🟢 Usable   |
 
 In other words, **NGNC is currently unusable at the measured trade size on both tested corridors**, while the USDC/EURC corridor remains usable.
 
-This finding independently aligns with concerns previously published by [Wayfare](https://github.com/Wayfare-labs/wayfare) about NGNC liquidity, but Fairway approaches the problem differently: instead of producing a one-time corridor measurement, it turns corridor measurement into a **continuous monitoring system with historical state and alerts**.
-
-### The gap
-
-Several Stellar projects already provide valuable forms of observability:
-
-* **Assay** — asset and scam-risk scanning.
-* **ProtocolCanary** — protocol fixture validation.
-* **sorolens** — Soroban contract observability.
-* **Wayfare** — corridor pricing and liquidity analysis.
-
-Fairway focuses on the gap between a **snapshot** and an **operational signal**.
+This is the gap Fairway fills: turning a one-time corridor measurement into a **continuous monitoring system with historical state and alerts**, so this kind of finding isn't a snapshot — it's something you'd actually know about the moment it happened.
 
 It continuously asks:
 
@@ -43,7 +32,7 @@ It continuously asks:
 * When did its state change?
 * What was the corridor's condition when the change occurred?
 
-That makes Fairway a monitoring layer rather than another one-shot quote tool.
+That makes Fairway a monitoring layer rather than a one-shot quote tool.
 
 ---
 
