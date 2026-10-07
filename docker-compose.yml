@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fairway-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fairway
+      POSTGRES_PASSWORD: fairway
+      POSTGRES_DB: fairway
+    expose:
+      - "5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fairway -d fairway"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fairway-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://fairway:fairway@postgres:5432/fairway?sslmode=disable
+      HORIZON_URL: https://horizon.stellar.org
+      MEASURE_INTERVAL: 5m
+      DEGRADED_LOSS_PCT: 2.5
+      UNUSABLE_LOSS_PCT: 5.0
+      REFERENCE_RATE_URL: https://api.frankfurter.dev/v2/rates
+      CORRIDORS_FILE: corridors.yaml
+      LISTEN_ADDR: :8080
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
