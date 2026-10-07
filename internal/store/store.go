@@ -348,6 +348,37 @@ RETURNING id`
 	return id, nil
 }
 
+// ListStateChangesByCorridor returns all state change events for a corridor ordered chronologically.
+func (s *Store) ListStateChangesByCorridor(ctx context.Context, corridorID int) ([]StateChangeEvent, error) {
+	const q = `
+SELECT id, corridor_id, from_state, to_state, measurement_id, occurred_at, webhook_sent, webhook_sent_at
+FROM state_change_events
+WHERE corridor_id = $1
+ORDER BY occurred_at ASC, id ASC`
+
+	rows, err := s.db.QueryContext(ctx, q, corridorID)
+	if err != nil {
+		return nil, fmt.Errorf("list state changes: %w", err)
+	}
+	defer rows.Close()
+
+	var out []StateChangeEvent
+	for rows.Next() {
+		var e StateChangeEvent
+		var from, to string
+		if err := rows.Scan(
+			&e.ID, &e.CorridorID, &from, &to, &e.MeasurementID,
+			&e.OccurredAt, &e.WebhookSent, &e.WebhookSentAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning state change: %w", err)
+		}
+		e.FromState = IntegrityState(from)
+		e.ToState = IntegrityState(to)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // PendingWebhooks returns state change events that have not had a webhook sent yet.
 func (s *Store) PendingWebhooks(ctx context.Context) ([]StateChangeEvent, error) {
 	const q = `
