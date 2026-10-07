@@ -58,18 +58,22 @@ func (c Corridor) EffectiveVerifiedStatus() string {
 		"pending":      2,
 		"live":         3,
 	}
-	sellR, ok := rank[c.SellVerifiedStatus]
+	sellStatus := c.SellVerifiedStatus
+	sellR, ok := rank[sellStatus]
 	if !ok {
+		sellStatus = "unknown"
 		sellR = rank["unknown"]
 	}
-	buyR, ok := rank[c.BuyVerifiedStatus]
+	buyStatus := c.BuyVerifiedStatus
+	buyR, ok := rank[buyStatus]
 	if !ok {
+		buyStatus = "unknown"
 		buyR = rank["unknown"]
 	}
 	if sellR <= buyR {
-		return c.SellVerifiedStatus
+		return sellStatus
 	}
-	return c.BuyVerifiedStatus
+	return buyStatus
 }
 
 // Measurement mirrors the measurements table row.
@@ -305,17 +309,21 @@ type rower interface {
 func (s *Store) scanMeasurement(row rower) (*Measurement, error) {
 	var m Measurement
 	var state string
+	var rawJSON []byte
 	err := row.Scan(
 		&m.ID, &m.CorridorID, &m.MeasuredAt, &m.TargetUSDValue, &m.SellAmount,
 		&m.ReceivedAmount, &m.LossPct,
 		&m.ReferenceRate, &m.ReferenceSrc,
-		&state, &m.PathFound, &m.RawResponse, &m.ErrorMsg,
+		&state, &m.PathFound, &rawJSON, &m.ErrorMsg,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("scanning measurement: %w", err)
+	}
+	if rawJSON != nil {
+		m.RawResponse = json.RawMessage(rawJSON)
 	}
 	m.IntegrityState = IntegrityState(state)
 	return &m, nil
