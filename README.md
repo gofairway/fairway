@@ -1,4 +1,4 @@
-(# Fairway
+# Fairway
 
 **Fairway is a continuous Stellar payment-corridor health monitor that measures real trade execution, tracks corridor health over time, and alerts when a corridor becomes unusable.**
 
@@ -383,4 +383,4 @@ Stellar already has excellent tools for discovering assets, inspecting protocols
 
 > **Can this corridor actually carry a meaningful payment right now, and will we know when that changes?**
 
-A snapshot can tell you what a corridor looks like once. A monitoring system can tell you whether it stayed usable, when it deteriorated, and when it recovered. That's the problem Fairway is built to solve.)
+A snapshot can tell you what a corridor looks like once. A monitoring system can tell you whether it stayed usable, when it deteriorated, and when it recovered. That's the problem Fairway is built to solve.
