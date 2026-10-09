@@ -1,5 +1,9 @@
 # Fairway
 
+[![CI](https://github.com/gofairway/fairway/actions/workflows/ci.yml/badge.svg)](https://github.com/gofairway/fairway/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/gofairway/fairway)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Fairway is a continuous Stellar payment-corridor health monitor that measures real trade execution, tracks corridor health over time, and alerts when a corridor becomes unusable.**
 
 ## Problem
