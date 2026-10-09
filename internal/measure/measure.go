@@ -227,20 +227,20 @@ func truncate(s string, max int) string {
 // ScoreState converts a loss percentage to an IntegrityState based on deviation from reference rate.
 //
 // Threshold reasoning:
-// - loss_pct < degradedThreshold (default: 2.5%): Usable.
-//   Normal payment corridor execution. Typical retail and anchor spreads on Stellar range from 0.1% to 2.0%.
-//   Note: Large negative loss_pct on thin/illiquid assets (like NGNC) likely reflects multi-hop DEX
-//   routing across intermediary pools (e.g. AQUA, native XLM, USDC) and shallow top-of-book effects
-//   at the tested trade size (e.g. 100 units), rather than genuine favorable pricing. This is a
-//   known measurement-methodology limitation on low-liquidity assets, not a settled explanation.
-// - degradedThreshold <= loss_pct < unusableThreshold (default: 2.5% to 5.0%): Degraded.
-//   Pricing has widened beyond normal spreads; liquidity is shallow or slippage is elevated.
-//   Payments will incur notable loss but can technically still route.
-// - loss_pct >= unusableThreshold (default: 5.0%): Unusable.
-//   Loss exceeding 5% indicates severe illiquidity, de-pegging, or predatory spreads that make
-//   the corridor economically unviable for real-world settlement.
-// - !pathFound or lossPct == nil: Unusable.
-//   No payment path exists on the ledger, or reference rate pricing could not be determined.
+//   - loss_pct < degradedThreshold (default: 2.5%): Usable.
+//     Normal payment corridor execution. Typical retail and anchor spreads on Stellar range from 0.1% to 2.0%.
+//     Note: Large negative loss_pct on thin/illiquid assets (like NGNC) likely reflects multi-hop DEX
+//     routing across intermediary pools (e.g. AQUA, native XLM, USDC) and shallow top-of-book effects
+//     at the tested trade size (e.g. 100 units), rather than genuine favorable pricing. This is a
+//     known measurement-methodology limitation on low-liquidity assets, not a settled explanation.
+//   - degradedThreshold <= loss_pct < unusableThreshold (default: 2.5% to 5.0%): Degraded.
+//     Pricing has widened beyond normal spreads; liquidity is shallow or slippage is elevated.
+//     Payments will incur notable loss but can technically still route.
+//   - loss_pct >= unusableThreshold (default: 5.0%): Unusable.
+//     Loss exceeding 5% indicates severe illiquidity, de-pegging, or predatory spreads that make
+//     the corridor economically unviable for real-world settlement.
+//   - !pathFound or lossPct == nil: Unusable.
+//     No payment path exists on the ledger, or reference rate pricing could not be determined.
 func ScoreState(lossPct *float64, pathFound bool, degradedThreshold, unusableThreshold float64) store.IntegrityState {
 	if !pathFound || lossPct == nil {
 		return store.StateUnusable
