@@ -4,6 +4,8 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/gofairway/fairway)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Website:** https://gofairway.github.io
+
 **Fairway is a continuous Stellar payment-corridor health monitor that measures real trade execution, tracks corridor health over time, and alerts when a corridor becomes unusable.**
 
 ## Problem
