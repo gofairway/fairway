@@ -17,13 +17,13 @@ import (
 
 // Payload is the JSON body posted to the webhook URL.
 type Payload struct {
-	Event       string    `json:"event"`        // always "corridor.state_change"
-	OccurredAt  time.Time `json:"occurred_at"`
-	CorridorID  int       `json:"corridor_id"`
-	CorridorName string   `json:"corridor_name"`
-	FromState   string    `json:"from_state"`
-	ToState     string    `json:"to_state"`
-	MeasurementID *int64  `json:"measurement_id,omitempty"`
+	Event         string    `json:"event"` // always "corridor.state_change"
+	OccurredAt    time.Time `json:"occurred_at"`
+	CorridorID    int       `json:"corridor_id"`
+	CorridorName  string    `json:"corridor_name"`
+	FromState     string    `json:"from_state"`
+	ToState       string    `json:"to_state"`
+	MeasurementID *int64    `json:"measurement_id,omitempty"`
 }
 
 // Dispatcher sends webhook payloads to a configured URL.
