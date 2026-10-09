@@ -36,7 +36,7 @@ func TestFrankfurterFetcher(t *testing.T) {
 		quotes := r.URL.Query().Get("quotes")
 		if base == "ngn" && quotes == "usd" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"date":"2026-10-05","base":"NGN","quote":"USD","rate":0.00075}]`))
+			_, _ = w.Write([]byte(`[{"date":"2026-10-05","base":"NGN","quote":"USD","rate":0.00075}]`))
 			return
 		}
 		http.NotFound(w, r)
