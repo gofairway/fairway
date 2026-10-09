@@ -87,6 +87,10 @@ Before opening the pull request:
 
 Keep pull requests focused and reasonably small where possible. Smaller changes are easier to review, test, and maintain.
 
+### Pull request checks
+
+Pull requests include a standard template with a short checklist (linking an issue, adding/updating tests, updating docs, and ensuring no unrelated changes). Automated CI runs on every pull request, executing `go vet`, `golangci-lint`, `go build`, and `go test -race` against PostgreSQL. Please ensure all CI checks pass and the checklist is completed before requesting review.
+
 Maintainers may request changes before a pull request is merged. Please address review feedback or explain why an alternative approach is preferable.
 
 ## Commits
