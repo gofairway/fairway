@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/gofairway/fairway/discussions
+    about: Ask questions or discuss ideas with the Fairway community.
+  - name: Contributing Guidelines
+    url: https://github.com/gofairway/fairway/blob/main/CONTRIBUTING.md
+    about: Review our contribution guidelines and development workflow.

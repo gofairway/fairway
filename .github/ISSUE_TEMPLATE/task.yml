@@ -1,0 +1,50 @@
+name: Task
+description: Propose a development task or implementation for Fairway.
+title: "[Task]: "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: Please fill out the sections below to define this task.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem or need does this task address?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What specific work is within the scope of this task?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: What criteria must be satisfied for this task to be complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What items or future enhancements are explicitly not part of this task?
+    validations:
+      required: false
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Complexity
+      description: Estimated complexity of this task.
+      options:
+        - Trivial
+        - Medium
+        - High
+    validations:
+      required: true
