@@ -31,14 +31,14 @@ type Corridor struct {
 	BuyAssetIssuer  string
 
 	// Sell-leg anchor verification
-	SellDomain          string
-	SellAnchorMetadata  string
-	SellVerifiedStatus  string
+	SellDomain         string
+	SellAnchorMetadata string
+	SellVerifiedStatus string
 
 	// Buy-leg anchor verification
-	BuyDomain          string
-	BuyAnchorMetadata  string
-	BuyVerifiedStatus  string
+	BuyDomain         string
+	BuyAnchorMetadata string
+	BuyVerifiedStatus string
 
 	// Shared
 	VerificationDate *time.Time
