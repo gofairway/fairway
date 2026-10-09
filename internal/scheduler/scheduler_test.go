@@ -59,11 +59,11 @@ func getTestStore(t *testing.T) *store.Store {
 // Previous measurement must be fetched BEFORE inserting the new measurement into the DB.
 //
 // If the bug from 0d2acf9 is present:
-// 1. Cycle 1 inserts Measurement 1 -> state transition unknown -> usable recorded.
-// 2. Cycle 2 inserts Measurement 2 FIRST, then queries LatestMeasurement.
-//    LatestMeasurement returns Measurement 2 (itself!), triggering `prev.ID == measurementID`.
-//    This resets prevState to StateUnknown, falsely detecting a state change on EVERY cycle,
-//    even when the corridor state has not changed.
+//  1. Cycle 1 inserts Measurement 1 -> state transition unknown -> usable recorded.
+//  2. Cycle 2 inserts Measurement 2 FIRST, then queries LatestMeasurement.
+//     LatestMeasurement returns Measurement 2 (itself!), triggering `prev.ID == measurementID`.
+//     This resets prevState to StateUnknown, falsely detecting a state change on EVERY cycle,
+//     even when the corridor state has not changed.
 //
 // Under correct behavior:
 // Cycle 2 fetches LatestMeasurement BEFORE inserting Measurement 2.
@@ -79,7 +79,7 @@ func TestScheduler_StateChangeRegression_0d2acf9(t *testing.T) {
 	// Mock Frankfurter API: 1 USD = 0.90 EUR
 	mockFrankfurter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"date":"2026-10-07","base":"USD","quote":"EUR","rate":0.90}]`))
+		_, _ = w.Write([]byte(`[{"date":"2026-10-07","base":"USD","quote":"EUR","rate":0.90}]`))
 	}))
 	defer mockFrankfurter.Close()
 
@@ -100,7 +100,7 @@ func TestScheduler_StateChangeRegression_0d2acf9(t *testing.T) {
 		}`, amount)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(resp))
+		_, _ = w.Write([]byte(resp))
 	}))
 	defer mockHorizon.Close()
 
@@ -238,14 +238,14 @@ func TestScheduler_MeasureAll_Sequential(t *testing.T) {
 
 	mockFrankfurter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"date":"2026-10-07","base":"USD","quote":"EUR","rate":0.90}]`))
+		_, _ = w.Write([]byte(`[{"date":"2026-10-07","base":"USD","quote":"EUR","rate":0.90}]`))
 	}))
 	defer mockFrankfurter.Close()
 
 	mockHorizon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"_embedded": {
 				"records": [{
 					"source_amount": "100.0000000",
@@ -274,7 +274,7 @@ func TestScheduler_RunContextCancel(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mockHorizon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"_embedded":{"records":[]}}`))
+		_, _ = w.Write([]byte(`{"_embedded":{"records":[]}}`))
 	}))
 	defer mockHorizon.Close()
 
