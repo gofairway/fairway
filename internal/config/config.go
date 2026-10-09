@@ -17,14 +17,14 @@ type CorridorConfig struct {
 	BuyAssetIssuer  string `yaml:"buy_asset_issuer"`
 
 	// Sell-leg anchor verification
-	SellDomain           string `yaml:"sell_domain"`
-	SellAnchorMetadata   string `yaml:"sell_anchor_metadata"`   // "full" | "none"
-	SellVerifiedStatus   string `yaml:"sell_verified_status"`   // "live" | "pending" | "unverifiable" | "unknown"
+	SellDomain         string `yaml:"sell_domain"`
+	SellAnchorMetadata string `yaml:"sell_anchor_metadata"` // "full" | "none"
+	SellVerifiedStatus string `yaml:"sell_verified_status"` // "live" | "pending" | "unverifiable" | "unknown"
 
 	// Buy-leg anchor verification
-	BuyDomain            string `yaml:"buy_domain"`
-	BuyAnchorMetadata    string `yaml:"buy_anchor_metadata"`    // "full" | "none"
-	BuyVerifiedStatus    string `yaml:"buy_verified_status"`    // "live" | "pending" | "unverifiable" | "unknown"
+	BuyDomain         string `yaml:"buy_domain"`
+	BuyAnchorMetadata string `yaml:"buy_anchor_metadata"` // "full" | "none"
+	BuyVerifiedStatus string `yaml:"buy_verified_status"` // "live" | "pending" | "unverifiable" | "unknown"
 
 	// Shared
 	VerificationDate string  `yaml:"verification_date"` // YYYY-MM-DD
@@ -46,7 +46,7 @@ type AppConfig struct {
 	HorizonURL string
 
 	// Measurement
-	SellAmount     float64       // amount of sell asset to price per measurement
+	SellAmount      float64       // amount of sell asset to price per measurement
 	MeasureInterval time.Duration // how often to measure each corridor
 
 	// Integrity thresholds
