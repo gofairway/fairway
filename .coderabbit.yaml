@@ -6,36 +6,18 @@ reviews:
   high_level_summary: true
   poem: false
   assess_linked_issues: true
-  high_level_summary_instructions: |
-    - Check each PR against the linked issue's acceptance criteria and say whether it is in scope.
-    - Confirm that changes to threshold, loss calculation, or state-transition logic include tests.
-    - Flag any newly introduced dependencies.
-    - Flag any edits to docs/corridor-verification.md that lack verification evidence.
   auto_review:
     enabled: true
     drafts: false
   path_instructions:
     - path: "**"
-      instructions: "Check each PR against the linked issue's acceptance criteria and say whether it is in scope."
+      instructions: "Check the PR against the linked issue's acceptance criteria and say whether it is in scope."
     - path: "{internal/measure/**,internal/scheduler/**,internal/store/**}"
       instructions: "Changes to threshold, loss calculation, or state-transition logic must include tests."
     - path: "{go.mod,go.sum}"
       instructions: "Flag new dependencies."
     - path: "docs/corridor-verification.md"
-      instructions: "Flag edits to docs/corridor-verification.md that lack verification evidence."
+      instructions: "Flag edits that lack verification evidence."
   pre_merge_checks:
     issue_assessment:
       mode: "warning"
-    custom_checks:
-      - name: "scope-and-acceptance-criteria"
-        mode: "warning"
-        instructions: "Check each PR against the linked issue's acceptance criteria and say whether it is in scope."
-      - name: "threshold-and-loss-tests"
-        mode: "warning"
-        instructions: "Changes to threshold, loss calculation, or state-transition logic must include tests."
-      - name: "new-dependencies-check"
-        mode: "warning"
-        instructions: "Flag any new dependencies."
-      - name: "corridor-verification-evidence"
-        mode: "warning"
-        instructions: "Flag edits to docs/corridor-verification.md that lack verification evidence."
