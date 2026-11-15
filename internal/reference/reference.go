@@ -25,30 +25,39 @@ type Fetcher interface {
 	FetchRate(ctx context.Context, fromCurrency, toCurrency string) (rate float64, src string, err error)
 }
 
+// assetCurrencies maps the Stellar asset codes whose underlying currency is not
+// the code minus a trailing marker letter. Adding one here is explicit on
+// purpose: a blanket rule over the last letter would turn unrelated codes into
+// valid-looking currencies.
+var assetCurrencies = map[string]string{
+	"NGNC": "NGN",
+	"USDC": "USD",
+	"EURC": "EUR",
+	"GHSC": "GHS",
+	"KESC": "KES",
+	"USDT": "USD",
+	"EURT": "EUR",
+	"AUDD": "AUD",
+	"XSGD": "SGD",
+	"IDRT": "IDR",
+	"ARST": "ARS",
+	"BRLA": "BRL",
+	"XLM":  "XLM",
+}
+
 // AssetToCurrency maps a Stellar asset code to its underlying fiat / ISO currency code.
 // E.g. NGNC -> NGN, USDC -> USD, EURC -> EUR.
 func AssetToCurrency(code string) string {
 	upper := strings.ToUpper(strings.TrimSpace(code))
-	switch upper {
-	case "NGNC":
-		return "NGN"
-	case "USDC":
-		return "USD"
-	case "EURC":
-		return "EUR"
-	case "GHSC":
-		return "GHS"
-	case "KESC":
-		return "KES"
-	case "XLM":
-		return "XLM"
-	default:
-		// If 4 letters ending with 'C' (e.g. BRLC), strip trailing 'C'
-		if len(upper) == 4 && strings.HasSuffix(upper, "C") {
-			return upper[:3]
-		}
-		return upper
+	if currency, ok := assetCurrencies[upper]; ok {
+		return currency
 	}
+	// The one inference kept: a 4-letter code ending in 'C' (e.g. BRLC) is the
+	// fiat currency followed by the C for "custodial".
+	if len(upper) == 4 && strings.HasSuffix(upper, "C") {
+		return upper[:3]
+	}
+	return upper
 }
 
 // FrankfurterFetcher retrieves mid-market reference rates from Frankfurter.

@@ -9,24 +9,45 @@ import (
 
 func TestAssetToCurrency(t *testing.T) {
 	tests := []struct {
+		name  string
 		asset string
 		want  string
 	}{
-		{"NGNC", "NGN"},
-		{"USDC", "USD"},
-		{"EURC", "EUR"},
-		{"GHSC", "GHS"},
-		{"KESC", "KES"},
-		{"XLM", "XLM"},
-		{"BRLC", "BRL"},
-		{"USD", "USD"},
+		{"explicit custodial", "NGNC", "NGN"},
+		{"explicit custodial usdc", "USDC", "USD"},
+		{"explicit custodial eurc", "EURC", "EUR"},
+		{"explicit custodial ghsc", "GHSC", "GHS"},
+		{"explicit custodial kesc", "KESC", "KES"},
+		{"native asset", "XLM", "XLM"},
+		{"derived from trailing c", "BRLC", "BRL"},
+		{"fiat code passes through", "USD", "USD"},
+		{"fiat code of 3 letters", "NGN", "NGN"},
+
+		{"stablecoin usdt", "USDT", "USD"},
+		{"stablecoin eurt", "EURT", "EUR"},
+		{"audd", "AUDD", "AUD"},
+		{"xsgd", "XSGD", "SGD"},
+		{"idrt", "IDRT", "IDR"},
+		{"arst", "ARST", "ARS"},
+		{"brla", "BRLA", "BRL"},
+
+		{"lower case", "usdc", "USD"},
+		{"mixed case", "UsDt", "USD"},
+		{"leading and trailing space", "  NGNC	", "NGN"},
+		{"unknown four letters", "ABCD", "ABCD"},
+		{"unknown three letters", "ZZZ", "ZZZ"},
+		{"empty", "", ""},
+		{"only spaces", "   ", ""},
+		{"longer than four", "USDCX", "USDCX"},
+		{"five letters ending in c", "USDCX", "USDCX"},
 	}
 
 	for _, tt := range tests {
-		got := AssetToCurrency(tt.asset)
-		if got != tt.want {
-			t.Errorf("AssetToCurrency(%q) = %q, want %q", tt.asset, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AssetToCurrency(tt.asset); got != tt.want {
+				t.Errorf("AssetToCurrency(%q) = %q, want %q", tt.asset, got, tt.want)
+			}
+		})
 	}
 }
 
