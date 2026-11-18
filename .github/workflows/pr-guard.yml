@@ -1,0 +1,51 @@
+name: PR Guard
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Evaluate PR Metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out base repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build PR Guard
+        run: go build -v -o /tmp/prguard ./tools/prguard
+
+      - name: Run PR Guard evaluation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_PATH: ${{ github.event_path }}
+          POLICY_PATH: .github/prguard.yml
+          CONTRIBUTING_URL: https://github.com/gofairway/fairway/blob/main/CONTRIBUTING.md#protected-paths-and-automated-checks
+        run: |
+          /tmp/prguard \
+            -policy "$POLICY_PATH" \
+            -event "$EVENT_PATH" \
+            -repo "$GITHUB_REPOSITORY" \
+            -pr-number "$PR_NUMBER" \
+            -token "$GITHUB_TOKEN" \
+            -contributing-url "$CONTRIBUTING_URL" \
+            -apply=true \
+            -exit-code=true
