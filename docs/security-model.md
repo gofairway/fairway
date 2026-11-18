@@ -22,37 +22,39 @@ In the context of community contributions:
 
 ## 2. PR Guard Defensive Architecture
 
-PR Guard is an automated first line of defense running on GitHub Actions. It is triggered by the `pull_request_target` event to allow triage and labeling while isolating untrusted PR code from the build environment.
+PR Guard is an automated first line of defense running on GitHub Actions. It is triggered by the `pull_request_target` event (`opened`, `synchronize`, `reopened`, `edited`, `labeled`) to allow triage and labeling while isolating untrusted PR code from the build environment.
 
 ```
-+--------------------------------------------------------------------------------+
-|                           GitHub Actions Runner                                |
-|                                                                                |
-|  [ pull_request_target event ]                                                 |
-|               |                                                                |
-|               v                                                                |
-|  1. Checkout BASE Branch (main) ONLY ---> Trusted Workflow & Tools             |
-|  2. Compile tools/prguard (Go stdlib only)                                     |
-|               |                                                                |
-|               v                                                                |
-|  3. Fetch PR Metadata & File List via GitHub API                               |
-|     (Filename, status, additions, deletions, patch diff)                       |
-|     * NEVER checks out PR Head commit                                          |
-|     * NEVER executes PR code                                                   |
-|               |                                                                |
-|               v                                                                |
-|  4. Evaluate .github/prguard.yml Policy                                        |
-|     +-------------------------+-------------------------+                      |
-|     |                         |                         |                      |
-|     v                         v                         v                      |
-|  [ BLOCK ]                [ REVIEW ]                 [ INFO ]                  |
-|  - Protected path         - Suspicious patterns      - Docs & tests only       |
-|  - Binary added           - Supply chain replace     - Pass cleanly            |
-|  - Auto-close PR          - External URLs            - Exit code 0             |
-|  - Post friendly notice   - Apply label                                        |
-|                           - Single updating comment                            |
-|                           - Fail status check (exit 1)                         |
-+--------------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------+
+|                               GitHub Actions Runner                                     |
+|                                                                                         |
+|  [ pull_request_target event: opened, synchronize, reopened, edited, labeled ]          |
+|               |                                                                         |
+|               v                                                                         |
+|  1. Checkout BASE Branch (main) ONLY ---> Trusted Workflow & Tools                      |
+|  2. Compile tools/prguard (Go stdlib only)                                              |
+|               |                                                                         |
+|               v                                                                         |
+|  3. Fetch PR Metadata & File List via GitHub API                                        |
+|     (Filename, status, additions, deletions, patch diff)                                |
+|     * NEVER checks out PR Head commit                                                   |
+|     * NEVER executes PR code                                                            |
+|               |                                                                         |
+|               v                                                                         |
+|  4. Evaluate .github/prguard.yml Policy                                                 |
+|     +-------------------------+-------------------------+                               |
+|     |                         |                         |                               |
+|     v                         v                         v                               |
+|  [ BLOCK ]                [ REVIEW ]                 [ INFO ]                           |
+|  - Protected path         - Suspicious patterns      - Docs & tests only                |
+|  - Binary added           - Supply chain replace     - Missing issue ref                |
+|  - Auto-close PR          - External URLs (code)     - Pass cleanly                     |
+|  - Post friendly notice   - Apply label              - Exit code 0                      |
+|                           - Single updating comment                                     |
+|                           - Fails UNTIL maintainer applies 'security-reviewed'          |
+|                           - Passes when 'security-reviewed' present (from maintainer)   |
+|                           - 'security-reviewed' removed on every synchronize event      |
++-----------------------------------------------------------------------------------------+
 ```
 
 ### 2.1 Key Design Principles
@@ -65,6 +67,8 @@ PR Guard is an automated first line of defense running on GitHub Actions. It is 
    No pull request fields (such as `github.event.pull_request.title`, `body`, or `head.ref`) are ever interpolated into shell commands. All metadata is ingested from `$GITHUB_EVENT_PATH` via Go standard library JSON decoders.
 4. **API Pagination & File Limits:**
    GitHub API limits diff output to 3000 files per PR. PR Guard handles pagination up to 3000 files; any PR reaching or exceeding 3000 changed files is flagged for mandatory security review because complete metadata cannot be guaranteed via the API.
+5. **Review Gate & Invalidation:**
+   When review items are flagged, the check fails until a maintainer reviews the code and applies the `security-reviewed` label. To ensure ongoing security, any new commit pushed by the contributor (`synchronize` event) automatically strips the `security-reviewed` label and re-evaluates the diff. Only maintainer label events may clear a review.
 
 ---
 
@@ -77,23 +81,28 @@ Applies only to non-maintainer contributors. PRs triggering a BLOCK rule are com
 * **Protected Paths:** Changes under `.github/**`, `Dockerfile`, `.dockerignore`, `.gitleaksignore`, `LICENSE`, `SECURITY.md`, and `CODEOWNERS`.
 * **Binary or Executable Files:** Any file added with an executable or archive extension (`.exe`, `.so`, `.bin`, `.dylib`, `.dll`, `.a`, `.o`, `.class`, `.wasm`, `.elf`, `.tar`, `.gz`, `.zip`, `.png`, etc.) or lacking text diff representation.
 
-### 3.2 REVIEW (Failing Status Check + Single Updating Notice)
+### 3.2 REVIEW (Failing Status Check Until Maintainer Approval)
 
-Applies the `needs-security-review` label, posts or updates a single markdown comment (preventing spam on subsequent pushes), and exits with a non-zero code to fail the status check:
+Applies the `needs-security-review` label, posts or updates a single markdown comment (preventing spam on subsequent pushes), and fails the status check until approved:
 
-* **Dependency Redirection:** Changes to `go.mod` or `go.sum`, specifically flagging `replace` directives.
-* **Low-Level & Execution Primitives:** Use of `os/exec`, `syscall`, `golang.org/x/sys`, `unsafe`, or `plugin`.
-* **Build Directives:** `//go:generate` annotations.
-* **Remote Shell Execution:** Downloads or piped execution via `curl`, `wget`, `sh`, or `bash -c`.
-* **Obfuscated Payloads:** Long contiguous base64 or hexadecimal strings (>= 80 characters).
-* **Credential & System Access:** References to `~/.ssh`, `.aws`, `.npmrc`, `/etc/passwd`, or `os.Environ()` dumps.
-* **Unapproved Hosts:** Any URL in added diff lines whose host is not in the approved allowlist (`discord.com`, `hooks.slack.com`, `api.frankfurter.dev`, `horizon.stellar.org`, `github.com`).
-* **Cryptomining Signatures:** Keywords including `stratum+tcp`, `stratum+ssl`, `cryptonight`, `xmrig`, `minergate`, `coinhive`, `monero`, or `hashrate`.
-* **PR Size & Hygiene:** Exceeding `max_files` (50) or `max_changed_lines` (1000), or lacking an issue reference (`Fixes #N` or `Closes #N`).
+* **Approval Mechanism:** A repository maintainer clears the review by applying the `security-reviewed` label. Only maintainers' label events can clear a review.
+* **Automatic Invalidation:** Pushing new commits (`synchronize` event) immediately strips `security-reviewed`, requiring maintainers to re-verify any new changes.
+* **Flagged Conditions:**
+  * **Dependency Redirection:** Changes to `go.mod` or `go.sum`, specifically flagging `replace` directives.
+  * **Low-Level & Execution Primitives:** Use of `os/exec`, `syscall`, `golang.org/x/sys`, `unsafe`, or `plugin`.
+  * **Build Directives:** `//go:generate` annotations.
+  * **Remote Shell Execution:** Downloads or piped execution via `curl`, `wget`, `sh`, or `bash -c`.
+  * **Obfuscated Payloads:** Long contiguous base64 or hexadecimal strings (>= 80 characters).
+  * **Credential & System Access:** References to `~/.ssh`, `.aws`, `.npmrc`, `/etc/passwd`, or `os.Environ()` dumps.
+  * **Unapproved Hosts (Non-Documentation Files Only):** URLs in added source code diff lines whose host is not in the approved allowlist (`discord.com`, `hooks.slack.com`, `api.frankfurter.dev`, `horizon.stellar.org`, `github.com`, `go.dev`, `pkg.go.dev`, `shields.io`, `stellar.org`, `stellar.expert`). Documentation files are exempt from URL restrictions.
+  * **Cryptomining Signatures:** Keywords including `stratum+tcp`, `stratum+ssl`, `cryptonight`, `xmrig`, `minergate`, `coinhive`, `monero`, or `hashrate`.
+  * **PR Scope Limits:** Exceeding `max_files` (50) or `max_changed_lines` (1000).
 
 ### 3.3 INFO (Automated Pass)
 
-PRs that modify documentation (`*.md`, `docs/**`) or test suites (`*_test.go`, `test/**`), contain no suspicious patterns, and comply with size limits pass with `INFO` status and exit code 0.
+Informational findings that do not fail the check or require maintainer intervention:
+* **Missing Issue Reference:** Not linking `Fixes #N` or `Closes #N` is recorded as an informational notice (`INFO`), encouraging good hygiene without failing the build.
+* **Documentation and Test Changes:** PRs modifying documentation (`*.md`, `docs/**`) or test suites (`*_test.go`, `test/**`), containing no suspicious patterns, pass with `INFO` status and exit code 0.
 
 ---
 
@@ -129,12 +138,41 @@ Maintainers reviewing PRs—especially those flagged with `needs-security-review
   ```
 * **Verify Dependency Changes:**
   Check `go.mod` diffs against official upstream repositories. Ensure no unexpected packages or replaced module versions are introduced.
-* **Audit External Network Endpoints:**
+* **Audit External Endpoints:**
   Confirm that all new URLs connect to documented, legitimate Stellar endpoints or official APIs.
 
-### 5.3 Review Checklist Before Approval
+### 5.3 Maintainer Review Checklist Before Applying 'security-reviewed'
 - [ ] Automated CI checks pass (`PR Guard`, `CI / test`, `govulncheck`, `gosec`, `gitleaks`, `go mod verify`, `CodeQL`).
-- [ ] No unaccounted `replace` directives exist in `go.mod`.
-- [ ] No new network hosts or endpoints are contacted outside approved documentation.
-- [ ] Issue reference is valid and accurately describes the contribution.
-- [ ] All code changes adhere to project architecture and undergo manual review by a designated CODEOWNER.
+- [ ] If `needs-security-review` was flagged: inspect the specific rule findings reported in the PR Guard comment.
+- [ ] For `go.mod` changes: verify package sources and ensure no unauthorized `replace` directives point to unvetted forks.
+- [ ] For source code URLs: verify that external endpoints connect to documented, official services.
+- [ ] For low-level packages (`os/exec`, `syscall`, `unsafe`): ensure implementation is strictly necessary and thoroughly vetted.
+- [ ] Apply the `security-reviewed` label only after completing manual inspection.
+
+---
+
+## 6. Security and Quality Review Checklist (Tool Capabilities & Boundaries)
+
+The following table factualizes the division of responsibilities across PR Guard, CI workflows, and manual maintainer reviews, explicitly noting where automated tools do not apply:
+
+| Scope Item | Automated Tool Status | Scope and Boundaries |
+|---|---|---|
+| **Hiding API keys and secrets** | **Enforced in CI (Gitleaks)** | CI scans PR diffs via Gitleaks; PR Guard consumes tokens via environment variables without printing them. Neither tool scans contributor workstations. |
+| **Protecting admin routes** | **N/A to PR Guard** | PR Guard does not host web routes or administrative endpoints; it runs as an ephemeral CI step. |
+| **Checking CORS** | **N/A to PR Guard** | PR Guard does not serve web APIs. CORS configuration belongs to the Fairway application server (`internal/api/api.go`). |
+| **Checking user access** | **Enforced in PR Guard** | Verifies PR author against maintainer allowlist and ensures only maintainer events can apply `security-reviewed` or modify protected paths. |
+| **Checking env variables** | **Enforced in PR Guard** | Avoids shell string interpolation; inputs are safely parsed via JSON from disk. Tool does not inspect application runtime env variables. |
+| **Sanitizing forms** | **N/A to PR Guard** | PR Guard has no interactive web forms; untrusted PR strings are ingested as static data. |
+| **XSS protection** | **N/A to PR Guard** | Outputs Markdown comments on GitHub; does not render HTML in a browser client. |
+| **Rate limiting** | **Enforced in PR Guard** | Uses paginated GitHub API requests (`per_page=100`) and enforces a 3000-file ceiling to avoid API rate limit exhaustion. Does not rate limit HTTP application requests. |
+| **Proper authentication** | **Enforced in PR Guard** | Authenticates GitHub API requests via `Bearer` token (`GITHUB_TOKEN`). Tool does not manage application user authentication. |
+| **Securing API endpoints and database access** | **N/A to PR Guard** | PR Guard does not expose public endpoints or query databases. |
+| **Debug mode off** | **Enforced in Build** | Production binaries are compiled without test debug servers or memory dump flags enabled. |
+| **Git history scanned for leaked secrets** | **Enforced in CI (Gitleaks)** | CI executes Gitleaks on the PR diff; PR Guard itself does not perform secret pattern scanning. |
+| **Unused packages removed** | **Enforced in PR Guard** | `tools/prguard` is implemented strictly with the Go standard library, with zero external dependencies. |
+| **Exposed files** | **Enforced in PR Guard** | Blocks modifications to repository configuration, workflows, licensing, and security policies from non-maintainers. |
+| **Security headers** | **N/A to PR Guard** | PR Guard is a CI process, not an HTTP web server. |
+| **Password hashing** | **N/A to PR Guard** | PR Guard handles no credentials or user password databases. |
+| **Dependency updates** | **Enforced in CI & Guard** | PR Guard flags `go.mod` modifications and `replace` directives; `govulncheck` and `dependency-review` track dependency CVEs. |
+| **Security audit** | **Enforced in CI (Gosec, CodeQL)** | Static AST analysis is performed by Gosec and CodeQL; PR Guard performs regex diff pattern matching only. |
+| **UI/UX psychology** | **Enforced in PR Guard** | Automated bot comments are phrased respectfully, constructively, and kindly for good-faith contributors, providing clear instructions on requesting review or exceptions. |
