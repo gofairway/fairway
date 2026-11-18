@@ -1,0 +1,110 @@
+# PR Guard Security Policy for Fairway (gofairway/fairway)
+# Inspects PR metadata only via GitHub API; never checks out or executes untrusted code.
+
+# Protected paths: Modifications by non-maintainers trigger automatic BLOCK and PR closure.
+protected_paths:
+  - ".github/**"
+  - "Dockerfile"
+  - ".dockerignore"
+  - ".gitleaksignore"
+  - "LICENSE"
+  - "SECURITY.md"
+  - "CODEOWNERS"
+  - ".github/CODEOWNERS"
+
+# PR scope and size limits
+max_files: 50
+max_changed_lines: 1000
+
+# Extensions recognized as binary or executable assets (adding these triggers BLOCK)
+binary_extensions:
+  - ".exe"
+  - ".bin"
+  - ".so"
+  - ".dylib"
+  - ".dll"
+  - ".a"
+  - ".o"
+  - ".class"
+  - ".pyc"
+  - ".wasm"
+  - ".elf"
+  - ".tar"
+  - ".gz"
+  - ".zip"
+  - ".7z"
+  - ".png"
+  - ".jpg"
+  - ".jpeg"
+  - ".gif"
+  - ".ico"
+  - ".pdf"
+
+# Approved external hosts for URLs in patch diffs
+allowed_hosts:
+  - "discord.com"
+  - "hooks.slack.com"
+  - "api.frankfurter.dev"
+  - "horizon.stellar.org"
+  - "github.com"
+
+# Author exemptions
+exempt_authors:
+  maintainers:
+    - "Sus-Nexus07"
+    - "gofairway"
+  dependabot:
+    - "dependabot[bot]"
+    - "dependabot"
+
+# Suspicious patterns in added lines (+ lines in diffs) that require security review
+suspicious_patterns:
+  - name: "go_mod_replace"
+    regex: "(?m)^\\+.*replace\\s+.*=>"
+    severity: "REVIEW"
+    notes: "Fork replacement or module redirection directive in go.mod; supply-chain risk."
+
+  - name: "os_exec"
+    regex: "(?m)^\\+.*\"os/exec\""
+    severity: "REVIEW"
+    notes: "Direct OS command execution via os/exec package."
+
+  - name: "syscall"
+    regex: "(?m)^\\+.*\"(?:syscall|golang\\.org/x/sys(?:/[a-z0-9_]+)*)\""
+    severity: "REVIEW"
+    notes: "Direct low-level system call or x/sys import."
+
+  - name: "unsafe"
+    regex: "(?m)^\\+.*\"unsafe\""
+    severity: "REVIEW"
+    notes: "Unsafe pointer operations bypass Go memory safety."
+
+  - name: "plugin"
+    regex: "(?m)^\\+.*\"plugin\""
+    severity: "REVIEW"
+    notes: "Dynamic plugin loading can execute untrusted native shared objects."
+
+  - name: "go_generate"
+    regex: "(?m)^\\+\\s*//go:generate\\b"
+    severity: "REVIEW"
+    notes: "Build-time code generation directive may run arbitrary commands."
+
+  - name: "shell_download"
+    regex: "(?m)^\\+.*\\b(?:curl\\s+[^\n]*|wget\\s+[^\n]*|\\|\\s*(?:ba)?sh\\b|bash\\s+-c|sh\\s+-c)"
+    severity: "REVIEW"
+    notes: "Shell-based remote downloads or piped shell executions."
+
+  - name: "long_encoded_blob"
+    regex: "(?m)^\\+.*(?:\\b[A-Za-z0-9+/]{80,}={0,2}\\b|\\b[0-9a-fA-F]{80,}\\b)"
+    severity: "REVIEW"
+    notes: "Long base64 or hexadecimal encoded string; possible obfuscation or hidden payload."
+
+  - name: "sensitive_file_or_env_access"
+    regex: "(?m)^\\+.*(?:(?:~|\\$HOME|/home/[^/\\s]+)/\\.ssh\\b|/\\.ssh/|\\.aws/(?:credentials|config)|/\\.aws\\b|\\.npmrc\\b|/etc/passwd\\b|os\\.Environ\\(\\))"
+    severity: "REVIEW"
+    notes: "Access to private SSH keys, AWS credentials, npmrc tokens, system files, or environment dump."
+
+  - name: "crypto_miner_keywords"
+    regex: "(?i)(?m)^\\+.*\\b(?:stratum\\+(?:tcp|ssl)|cryptonight|xmrig|minergate|coinhive|monero|hashrate)\\b"
+    severity: "REVIEW"
+    notes: "Cryptocurrency mining protocols, pool addresses, or mining software references."
