@@ -47,6 +47,11 @@ allowed_hosts:
   - "api.frankfurter.dev"
   - "horizon.stellar.org"
   - "github.com"
+  - "go.dev"
+  - "pkg.go.dev"
+  - "shields.io"
+  - "stellar.org"
+  - "stellar.expert"
 
 exempt_authors:
   maintainers:
@@ -141,12 +146,17 @@ func TestGuardTableDriven(t *testing.T) {
 		author         string
 		title          string
 		body           string
+		labels         []string
+		eventAction    string
+		eventLabel     string
+		sender         string
 		changedFiles   int
 		additions      int
 		deletions      int
 		expectedAction Action
 		expectedRule   string
 		expectExempt   bool
+		expectApproved bool
 	}{
 		{
 			name:           "Protected path change blocks untrusted contributor",
@@ -220,12 +230,12 @@ func TestGuardTableDriven(t *testing.T) {
 			expectedRule:   "unallowed-host-url",
 		},
 		{
-			name:           "Missing issue reference in title and body flags review",
+			name:           "Missing issue reference is demoted to INFO",
 			fixture:        "docs_only_info.json",
 			author:         "contributor-xyz",
 			title:          "Update documentation",
 			body:           "Forgot to link an issue here",
-			expectedAction: ActionReview,
+			expectedAction: ActionInfo,
 			expectedRule:   "missing-issue-reference",
 		},
 		{
@@ -239,6 +249,47 @@ func TestGuardTableDriven(t *testing.T) {
 			expectedAction: ActionReview,
 			expectedRule:   "max-lines-exceeded",
 		},
+		{
+			name:           "REVIEW passes when maintainer applies security-reviewed label",
+			fixture:        "replace_directive_review.json",
+			author:         "external-dev",
+			title:          "Fixes #90: module replace directive",
+			body:           "Fixes #90 with replacement module",
+			labels:         []string{"security-reviewed"},
+			eventAction:    "labeled",
+			eventLabel:     "security-reviewed",
+			sender:         "Sus-Nexus07", // Maintainer
+			expectedAction: ActionReview,
+			expectedRule:   "go-mod-replace",
+			expectApproved: true,
+		},
+		{
+			name:           "Non-maintainer applying security-reviewed label fails approval",
+			fixture:        "replace_directive_review.json",
+			author:         "external-dev",
+			title:          "Fixes #91: module replace directive",
+			body:           "Fixes #91 with replacement module",
+			labels:         []string{"security-reviewed"},
+			eventAction:    "labeled",
+			eventLabel:     "security-reviewed",
+			sender:         "untrusted-contributor",
+			expectedAction: ActionReview,
+			expectedRule:   "go-mod-replace",
+			expectApproved: false,
+		},
+		{
+			name:           "Synchronize event clears/invalidates security-reviewed label",
+			fixture:        "replace_directive_review.json",
+			author:         "external-dev",
+			title:          "Fixes #92: module replace directive",
+			body:           "Fixes #92 with replacement module",
+			labels:         []string{"security-reviewed"},
+			eventAction:    "synchronize",
+			sender:         "external-dev",
+			expectedAction: ActionReview,
+			expectedRule:   "go-mod-replace",
+			expectApproved: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -249,6 +300,10 @@ func TestGuardTableDriven(t *testing.T) {
 				Title:        tc.title,
 				Body:         tc.body,
 				Author:       tc.author,
+				Sender:       tc.sender,
+				EventAction:  tc.eventAction,
+				EventLabel:   tc.eventLabel,
+				Labels:       tc.labels,
 				ChangedFiles: tc.changedFiles,
 				Additions:    tc.additions,
 				Deletions:    tc.deletions,
@@ -258,6 +313,10 @@ func TestGuardTableDriven(t *testing.T) {
 
 			if result.Action != tc.expectedAction {
 				t.Fatalf("expected action %s, got %s (findings: %+v)", tc.expectedAction, result.Action, result.Findings)
+			}
+
+			if tc.expectApproved != result.Approved {
+				t.Fatalf("expected approved %v, got %v", tc.expectApproved, result.Approved)
 			}
 
 			if tc.expectExempt && !result.Exempt {
@@ -378,12 +437,19 @@ func TestAllowedAndUnallowedURLs(t *testing.T) {
 		Author: "contributor",
 	}
 
-	// Test approved URLs: horizon.stellar.org, github.com, api.frankfurter.dev
+	// Test approved URLs: horizon.stellar.org, github.com, api.frankfurter.dev, go.dev, pkg.go.dev, shields.io, stellar.org, stellar.expert
 	approvedFiles := []PRFile{
 		{
 			Filename: "internal/measure/client.go",
 			Status:   "modified",
-			Patch:    "+const endpoint = \"https://horizon.stellar.org/paths\"\n+const git = \"https://github.com/gofairway/fairway\"\n",
+			Patch: `+const endpoint = "https://horizon.stellar.org/paths"
++const git = "https://github.com/gofairway/fairway"
++const godoc = "https://pkg.go.dev/github.com/lib/pq"
++const gosite = "https://go.dev/dl"
++const badge = "https://shields.io/badge/build-passing-brightgreen"
++const stellar = "https://stellar.org/learn"
++const expert = "https://stellar.expert/explorer/public"
+`,
 		},
 	}
 	resApproved := Evaluate(policy, pr, approvedFiles)
@@ -393,7 +459,27 @@ func TestAllowedAndUnallowedURLs(t *testing.T) {
 		}
 	}
 
-	// Test unapproved URL
+	// Test documentation files: URLs outside allowlist in .md or docs/ are exempt
+	docFiles := []PRFile{
+		{
+			Filename: "docs/external-reference.md",
+			Status:   "modified",
+			Patch:    "+Refer to documentation at https://some-external-unlisted-library.io/docs\n",
+		},
+		{
+			Filename: "README.md",
+			Status:   "modified",
+			Patch:    "+Check https://arbitrary-unlisted-blog.com/guide for details\n",
+		},
+	}
+	resDocs := Evaluate(policy, pr, docFiles)
+	for _, f := range resDocs.Findings {
+		if f.Rule == "unallowed-host-url" {
+			t.Fatalf("unexpected unallowed-host-url finding for documentation file: %v", f)
+		}
+	}
+
+	// Test unapproved URL in Go source code (must be flagged for review)
 	unapprovedFiles := []PRFile{
 		{
 			Filename: "internal/measure/client.go",
@@ -410,7 +496,7 @@ func TestAllowedAndUnallowedURLs(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("expected unallowed-host-url finding for unapproved host")
+		t.Fatalf("expected unallowed-host-url finding for unapproved host in source code")
 	}
 }
 
@@ -497,6 +583,7 @@ func TestCommentAndLabelOperations(t *testing.T) {
 	var patchedCommentID int64
 	var patchedCommentBody string
 	var appliedLabel string
+	var removedLabel string
 	var closedPR bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -520,6 +607,10 @@ func TestCommentAndLabelOperations(t *testing.T) {
 			if len(payload.Labels) > 0 {
 				appliedLabel = payload.Labels[0]
 			}
+			w.WriteHeader(http.StatusOK)
+
+		case r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/issues/10/labels/"):
+			removedLabel = strings.TrimPrefix(r.URL.Path, "/repos/owner/repo/issues/10/labels/")
 			w.WriteHeader(http.StatusOK)
 
 		case r.Method == http.MethodPatch && strings.HasSuffix(r.URL.Path, "/pulls/10"):
@@ -555,7 +646,15 @@ func TestCommentAndLabelOperations(t *testing.T) {
 		t.Fatalf("expected label 'needs-security-review', got %q", appliedLabel)
 	}
 
-	// 3. ClosePR
+	// 3. RemoveLabel
+	if err := client.RemoveLabel(ctx, "owner", "repo", 10, "security-reviewed"); err != nil {
+		t.Fatalf("RemoveLabel error: %v", err)
+	}
+	if removedLabel != "security-reviewed" {
+		t.Fatalf("expected removed label 'security-reviewed', got %q", removedLabel)
+	}
+
+	// 4. ClosePR
 	if err := client.ClosePR(ctx, "owner", "repo", 10); err != nil {
 		t.Fatalf("ClosePR error: %v", err)
 	}

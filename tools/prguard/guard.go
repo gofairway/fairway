@@ -34,6 +34,7 @@ type Result struct {
 	Summary      string    `json:"summary"`
 	Exempt       bool      `json:"exempt"`
 	ExemptReason string    `json:"exempt_reason,omitempty"`
+	Approved     bool      `json:"approved,omitempty"`
 }
 
 // PRFile matches GitHub's pull request file representation.
@@ -52,13 +53,17 @@ type PRFile struct {
 
 // PRMetadata contains essential PR-level metadata.
 type PRMetadata struct {
-	Number       int    `json:"number"`
-	Title        string `json:"title"`
-	Body         string `json:"body"`
-	Author       string `json:"author"`
-	ChangedFiles int    `json:"changed_files"`
-	Additions    int    `json:"additions"`
-	Deletions    int    `json:"deletions"`
+	Number       int      `json:"number"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	Author       string   `json:"author"`
+	Sender       string   `json:"sender"`
+	EventAction  string   `json:"event_action"`
+	EventLabel   string   `json:"event_label"`
+	Labels       []string `json:"labels"`
+	ChangedFiles int      `json:"changed_files"`
+	Additions    int      `json:"additions"`
+	Deletions    int      `json:"deletions"`
 }
 
 var (
@@ -118,13 +123,13 @@ func Evaluate(policy *Policy, pr PRMetadata, files []PRFile) Result {
 	}
 
 	// 2. REVIEW Rules
-	// Missing issue reference in PR title or body
+	// Missing issue reference in PR title or body (demoted to INFO)
 	combinedText := pr.Title + "\n" + pr.Body
 	if !issueRefRegex.MatchString(combinedText) {
 		findings = append(findings, Finding{
-			Severity: string(ActionReview),
+			Severity: string(ActionInfo),
 			Rule:     "missing-issue-reference",
-			Message:  "PR title or body must reference an issue using 'Fixes #N' or 'Closes #N'.",
+			Message:  "PR title or body does not reference an issue using 'Fixes #N' or 'Closes #N'.",
 		})
 	}
 
@@ -220,16 +225,18 @@ func Evaluate(policy *Policy, pr PRMetadata, files []PRFile) Result {
 				}
 			}
 
-			// URLs outside allowlist
-			foundURLs := urlRegex.FindAllString(addedLines, -1)
-			for _, rawURL := range foundURLs {
-				if !isAllowedURL(policy.AllowedHosts, rawURL) {
-					findings = append(findings, Finding{
-						Severity: string(ActionReview),
-						Rule:     "unallowed-host-url",
-						File:     file.Filename,
-						Message:  fmt.Sprintf("URL '%s' points to host outside allowed hosts list.", rawURL),
-					})
+			// URLs outside allowlist (applied only to non-documentation files)
+			if !isDocumentationFile(file.Filename) {
+				foundURLs := urlRegex.FindAllString(addedLines, -1)
+				for _, rawURL := range foundURLs {
+					if !isAllowedURL(policy.AllowedHosts, rawURL) {
+						findings = append(findings, Finding{
+							Severity: string(ActionReview),
+							Rule:     "unallowed-host-url",
+							File:     file.Filename,
+							Message:  fmt.Sprintf("URL '%s' points to host outside allowed hosts list.", rawURL),
+						})
+					}
 				}
 			}
 		}
@@ -257,11 +264,41 @@ func Evaluate(policy *Policy, pr PRMetadata, files []PRFile) Result {
 	}
 
 	if len(reviewReasons) > 0 {
+		hasSecurityReviewed := false
+		for _, l := range pr.Labels {
+			if l == "security-reviewed" {
+				hasSecurityReviewed = true
+				break
+			}
+		}
+
+		approved := false
+		if hasSecurityReviewed {
+			// A synchronize event invalidates previous reviews
+			if pr.EventAction == "synchronize" {
+				approved = false
+			} else if pr.EventAction == "labeled" && pr.EventLabel == "security-reviewed" {
+				// ONLY maintainers' label events may clear a REVIEW
+				approved = isMaintainer(policy, pr.Sender)
+			} else if pr.EventAction == "opened" {
+				approved = isMaintainer(policy, pr.Sender)
+			} else {
+				// Maintain existing approval on other non-synchronize events (e.g. edited)
+				approved = true
+			}
+		}
+
+		summary := fmt.Sprintf("PR triggers %d item(s) requiring manual security review (pending 'security-reviewed' label).", len(reviewReasons))
+		if approved {
+			summary = fmt.Sprintf("PR triggers %d item(s) requiring review; approved by maintainer via 'security-reviewed' label.", len(reviewReasons))
+		}
+
 		return Result{
 			Action:   ActionReview,
 			Reasons:  reviewReasons,
 			Findings: findings,
-			Summary:  fmt.Sprintf("PR triggers %d item(s) requiring manual security review.", len(reviewReasons)),
+			Summary:  summary,
+			Approved: approved,
 		}
 	}
 
@@ -394,16 +431,21 @@ func isAllowedURL(allowedHosts []string, rawURL string) bool {
 	return false
 }
 
+func isDocumentationFile(filename string) bool {
+	clean := filepath.Clean(filename)
+	return strings.HasSuffix(clean, ".md") ||
+		strings.HasPrefix(clean, "docs/") ||
+		clean == "LICENSE" ||
+		clean == "CODE_OF_CONDUCT.md"
+}
+
 func areTestsAndDocsOnly(files []PRFile) bool {
 	if len(files) == 0 {
 		return false
 	}
 	for _, f := range files {
 		clean := filepath.Clean(f.Filename)
-		if strings.HasSuffix(clean, ".md") ||
-			strings.HasPrefix(clean, "docs/") ||
-			clean == "LICENSE" ||
-			clean == "CODE_OF_CONDUCT.md" ||
+		if isDocumentationFile(clean) ||
 			strings.HasSuffix(clean, "_test.go") ||
 			strings.HasPrefix(clean, "test/") ||
 			strings.HasPrefix(clean, "testdata/") {
@@ -442,25 +484,31 @@ func FormatComment(res Result, pr PRMetadata, contributingURL string) string {
 		sb.WriteString("You are welcome to open an issue to discuss this change with maintainers before resubmitting. Thank you for your understanding!\n")
 
 	case ActionReview:
-		sb.WriteString("### 🛡️ PR Guard Notice: Security Review Required\n\n")
-		sb.WriteString(fmt.Sprintf("Hi @%s, thank you for contributing to Fairway!\n\n", author))
-		sb.WriteString("Our automated security guard reviewed this pull request and flagged the following item(s) that require maintainer review before merging:\n\n")
-		for _, f := range res.Findings {
-			if f.Severity == string(ActionReview) {
-				if f.File != "" {
-					sb.WriteString(fmt.Sprintf("- 🔍 **[%s]** `%s`: %s\n", f.Rule, f.File, f.Message))
-				} else {
-					sb.WriteString(fmt.Sprintf("- 🔍 **[%s]**: %s\n", f.Rule, f.Message))
+		if res.Approved {
+			sb.WriteString("### 🛡️ PR Guard Notice: Security Review Approved\n\n")
+			sb.WriteString(fmt.Sprintf("Hi @%s, the security review has been approved by a repository maintainer via the `security-reviewed` label.\n\n", author))
+			sb.WriteString("All required automated checks are now passing. Thank you for your contribution!\n")
+		} else {
+			sb.WriteString("### 🛡️ PR Guard Notice: Security Review Required\n\n")
+			sb.WriteString(fmt.Sprintf("Hi @%s, thank you for contributing to Fairway!\n\n", author))
+			sb.WriteString("Our automated security guard reviewed this pull request and flagged the following item(s) that require maintainer review before merging:\n\n")
+			for _, f := range res.Findings {
+				if f.Severity == string(ActionReview) {
+					if f.File != "" {
+						sb.WriteString(fmt.Sprintf("- 🔍 **[%s]** `%s`: %s\n", f.Rule, f.File, f.Message))
+					} else {
+						sb.WriteString(fmt.Sprintf("- 🔍 **[%s]**: %s\n", f.Rule, f.Message))
+					}
 				}
 			}
+			sb.WriteString("\n**Next steps:**\n")
+			sb.WriteString("1. A repository maintainer will review the flagged items and can approve by applying the `security-reviewed` label.\n")
+			sb.WriteString("2. If any items can be addressed (such as adjusting URLs or dependencies), you can push updates directly to this branch and the check will automatically re-run (any pushed update will require fresh maintainer re-approval).\n")
+			if contributingURL != "" {
+				sb.WriteString(fmt.Sprintf("3. For more details on our security checks, see the [Protected paths and automated checks](%s) guide.\n\n", contributingURL))
+			}
+			sb.WriteString("Thank you for helping keep Fairway safe and reliable!\n")
 		}
-		sb.WriteString("\n**Next steps:**\n")
-		sb.WriteString("1. A maintainer will inspect the flagged items during review.\n")
-		sb.WriteString("2. If any items can be addressed (such as linking an issue with `Fixes #N` or adjusting URLs), you can push updates directly to this branch and the check will automatically re-run.\n")
-		if contributingURL != "" {
-			sb.WriteString(fmt.Sprintf("3. For more details on our security checks, see the [Protected paths and automated checks](%s) guide.\n\n", contributingURL))
-		}
-		sb.WriteString("Thank you for helping keep Fairway safe and reliable!\n")
 
 	case ActionInfo:
 		sb.WriteString("### 🛡️ PR Guard: Checks Passed\n\n")

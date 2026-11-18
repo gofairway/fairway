@@ -12,6 +12,13 @@ import (
 )
 
 type githubEventPayload struct {
+	Action string `json:"action"`
+	Sender struct {
+		Login string `json:"login"`
+	} `json:"sender"`
+	Label struct {
+		Name string `json:"name"`
+	} `json:"label"`
 	PullRequest struct {
 		Number       int    `json:"number"`
 		Title        string `json:"title"`
@@ -22,6 +29,9 @@ type githubEventPayload struct {
 		User         struct {
 			Login string `json:"login"`
 		} `json:"user"`
+		Labels []struct {
+			Name string `json:"name"`
+		} `json:"labels"`
 	} `json:"pull_request"`
 	Repository struct {
 		FullName string `json:"full_name"`
@@ -83,9 +93,15 @@ func main() {
 			pr.Title = payload.PullRequest.Title
 			pr.Body = payload.PullRequest.Body
 			pr.Author = payload.PullRequest.User.Login
+			pr.Sender = payload.Sender.Login
+			pr.EventAction = payload.Action
+			pr.EventLabel = payload.Label.Name
 			pr.ChangedFiles = payload.PullRequest.ChangedFiles
 			pr.Additions = payload.PullRequest.Additions
 			pr.Deletions = payload.PullRequest.Deletions
+			for _, lbl := range payload.PullRequest.Labels {
+				pr.Labels = append(pr.Labels, lbl.Name)
+			}
 			if repoName == "" && payload.Repository.FullName != "" {
 				repoName = payload.Repository.FullName
 			}
@@ -106,6 +122,46 @@ func main() {
 	}
 	if bodyOverride != "" {
 		pr.Body = bodyOverride
+	}
+
+	// The workflow MUST remove "security-reviewed" on every synchronize event
+	if pr.EventAction == "synchronize" {
+		var filtered []string
+		for _, l := range pr.Labels {
+			if l != "security-reviewed" {
+				filtered = append(filtered, l)
+			}
+		}
+		pr.Labels = filtered
+		if applyActions && githubToken != "" && repoName != "" && pr.Number > 0 {
+			parts := strings.Split(repoName, "/")
+			if len(parts) == 2 {
+				client := NewGitHubClient("", githubToken)
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				_ = client.RemoveLabel(ctx, parts[0], parts[1], pr.Number, "security-reviewed")
+				cancel()
+			}
+		}
+	}
+
+	// ONLY maintainers' label events may clear a REVIEW (strip if added by non-maintainer)
+	if pr.EventAction == "labeled" && pr.EventLabel == "security-reviewed" && !isMaintainer(policy, pr.Sender) {
+		var filtered []string
+		for _, l := range pr.Labels {
+			if l != "security-reviewed" {
+				filtered = append(filtered, l)
+			}
+		}
+		pr.Labels = filtered
+		if applyActions && githubToken != "" && repoName != "" && pr.Number > 0 {
+			parts := strings.Split(repoName, "/")
+			if len(parts) == 2 {
+				client := NewGitHubClient("", githubToken)
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				_ = client.RemoveLabel(ctx, parts[0], parts[1], pr.Number, "security-reviewed")
+				cancel()
+			}
+		}
 	}
 
 	// 3. Obtain PR Files
@@ -188,12 +244,20 @@ func main() {
 				}
 
 			case ActionReview:
-				// Post one updating comment and apply needs-security-review label
-				if err := client.PostOrUpdateComment(ctx, owner, repo, pr.Number, commentText); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to post/update comment: %v\n", err)
-				}
-				if err := client.ApplyLabel(ctx, owner, repo, pr.Number, "needs-security-review"); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to apply label: %v\n", err)
+				if result.Approved {
+					// Review approved: update comment and clear needs-security-review label
+					if err := client.PostOrUpdateComment(ctx, owner, repo, pr.Number, commentText); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to post/update comment: %v\n", err)
+					}
+					_ = client.RemoveLabel(ctx, owner, repo, pr.Number, "needs-security-review")
+				} else {
+					// Review pending: post one updating comment and apply needs-security-review label
+					if err := client.PostOrUpdateComment(ctx, owner, repo, pr.Number, commentText); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to post/update comment: %v\n", err)
+					}
+					if err := client.ApplyLabel(ctx, owner, repo, pr.Number, "needs-security-review"); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to apply label: %v\n", err)
+					}
 				}
 
 			case ActionInfo:
@@ -203,7 +267,7 @@ func main() {
 	}
 
 	// 6. Exit code
-	if exitCode && (result.Action == ActionBlock || result.Action == ActionReview) {
+	if exitCode && (result.Action == ActionBlock || (result.Action == ActionReview && !result.Approved)) {
 		os.Exit(1)
 	}
 }

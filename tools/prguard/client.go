@@ -197,6 +197,29 @@ func (c *GitHubClient) ApplyLabel(ctx context.Context, owner, repo string, prNum
 	return nil
 }
 
+// RemoveLabel removes the specified label from the PR issue.
+func (c *GitHubClient) RemoveLabel(ctx context.Context, owner, repo string, prNumber int, label string) error {
+	reqURL := fmt.Sprintf("%s/repos/%s/%s/issues/%d/labels/%s", c.BaseURL, owner, repo, prNumber, strings.ReplaceAll(label, " ", "%20"))
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, nil)
+	if err != nil {
+		return fmt.Errorf("create remove label request: %w", err)
+	}
+	c.setHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("execute remove label request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("remove label failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // ClosePR closes the pull request.
 func (c *GitHubClient) ClosePR(ctx context.Context, owner, repo string, prNumber int) error {
 	reqURL := fmt.Sprintf("%s/repos/%s/%s/pulls/%d", c.BaseURL, owner, repo, prNumber)
