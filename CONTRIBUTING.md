@@ -138,6 +138,10 @@ Documentation is part of the project.
 
 If a contribution changes how Fairway is installed, configured, measured, queried, or operated, update the relevant documentation alongside the code.
 
+For adding a corridor, see:
+
+[`docs/adding-a-corridor.md`](docs/adding-a-corridor.md)
+
 For corridor verification and seeded asset methodology, see:
 
 [`docs/corridor-verification.md`](docs/corridor-verification.md)

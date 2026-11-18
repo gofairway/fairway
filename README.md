@@ -246,6 +246,7 @@ fairway/
 │   └── api/                   # REST API (healthz, corridors, corridor history)
 │
 ├── docs/
+│   ├── adding-a-corridor.md
 │   └── corridor-verification.md
 │
 ├── schema.sql               # Postgres DDL, applied directly (no migration tool)
@@ -368,7 +369,7 @@ Fairway is intended to be useful both as a monitoring service and as an open-sou
 
 Good areas for contribution include: additional corridor verification, measurement reliability, database and historical analysis, state-classification logic, API improvements, webhook integrations (e.g. Discord/Slack-formatted payloads), tests, documentation, and additional Stellar assets and corridors.
 
-Before adding a new corridor, please follow the methodology described in [`docs/corridor-verification.md`](docs/corridor-verification.md).
+Before adding a new corridor, follow the step-by-step guide in [`docs/adding-a-corridor.md`](docs/adding-a-corridor.md). It builds on the verification methodology in [`docs/corridor-verification.md`](docs/corridor-verification.md).
 
 ---
 
