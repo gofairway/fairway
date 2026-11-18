@@ -1,0 +1,20 @@
+[
+  {
+    "sha": "d4e5f6a1b2c3",
+    "filename": "docs/deployment.md",
+    "status": "modified",
+    "additions": 10,
+    "deletions": 2,
+    "changes": 12,
+    "patch": "@@ -50,2 +50,10 @@\n+Add deployment guide details\n+See https://github.com/gofairway/fairway for reference"
+  },
+  {
+    "sha": "e5f6a1b2c3d4",
+    "filename": "README.md",
+    "status": "modified",
+    "additions": 4,
+    "deletions": 1,
+    "changes": 5,
+    "patch": "@@ -20,1 +20,4 @@\n+Update project documentation badge"
+  }
+]

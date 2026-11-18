@@ -1,0 +1,11 @@
+[
+  {
+    "sha": "1a2b3c4d5e6f",
+    "filename": "cmd/helper/main.go",
+    "status": "added",
+    "additions": 8,
+    "deletions": 0,
+    "changes": 8,
+    "patch": "@@ -0,0 +1,8 @@\n+package main\n+\n+import \"os/exec\"\n+\n+func run() {\n+\texec.Command(\"sh\", \"-c\", \"whoami\").Run()\n+}"
+  }
+]
