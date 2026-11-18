@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -71,7 +72,7 @@ func main() {
 	// 2. Parse PR Metadata
 	var pr PRMetadata
 	if eventPath != "" {
-		eventData, err := os.ReadFile(eventPath)
+		eventData, err := os.ReadFile(filepath.Clean(eventPath)) // #nosec G304 - GitHub event file path from environment
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading event file %s: %v\n", eventPath, err)
 			os.Exit(2)
@@ -110,7 +111,7 @@ func main() {
 	// 3. Obtain PR Files
 	var files []PRFile
 	if filesPath != "" {
-		filesData, err := os.ReadFile(filesPath)
+		filesData, err := os.ReadFile(filepath.Clean(filesPath)) // #nosec G304 - local fixture path specified via CLI
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading files JSON %s: %v\n", filesPath, err)
 			os.Exit(2)
@@ -154,7 +155,7 @@ func main() {
 
 	// Optionally save output to file
 	if outputPath != "" {
-		if err := os.WriteFile(outputPath, outBytes, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Clean(outputPath), outBytes, 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output to %s: %v\n", outputPath, err)
 		}
 	}
@@ -162,7 +163,7 @@ func main() {
 	// Format comment markdown
 	commentText := FormatComment(result, pr, contributingURL)
 	if commentOutPath != "" {
-		if err := os.WriteFile(commentOutPath, []byte(commentText), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Clean(commentOutPath), []byte(commentText), 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing comment markdown to %s: %v\n", commentOutPath, err)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,7 +45,8 @@ type compiledPattern struct {
 
 // LoadPolicy reads and parses a policy file in YAML or JSON format using Go standard library only.
 func LoadPolicy(path string) (*Policy, error) {
-	data, err := os.ReadFile(path)
+	cleanPath := filepath.Clean(path)
+	data, err := os.ReadFile(cleanPath) // #nosec G304 - policy path provided via CLI or default configuration
 	if err != nil {
 		return nil, fmt.Errorf("read policy file: %w", err)
 	}

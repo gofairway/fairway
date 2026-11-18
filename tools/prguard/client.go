@@ -55,13 +55,13 @@ func (c *GitHubClient) FetchPRFiles(ctx context.Context, owner, repo string, prN
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("fetch files failed (status %d): %s", resp.StatusCode, string(body))
 		}
 
 		var pageFiles []PRFile
 		err = json.NewDecoder(resp.Body).Decode(&pageFiles)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("decode files JSON on page %d: %w", page, err)
 		}
@@ -121,7 +121,7 @@ func (c *GitHubClient) PostOrUpdateComment(ctx context.Context, owner, repo stri
 			}
 		}
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	payload := map[string]string{"body": commentBody}
 	payloadBytes, err := json.Marshal(payload)
