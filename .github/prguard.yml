@@ -47,6 +47,11 @@ allowed_hosts:
   - "api.frankfurter.dev"
   - "horizon.stellar.org"
   - "github.com"
+  - "go.dev"
+  - "pkg.go.dev"
+  - "shields.io"
+  - "stellar.org"
+  - "stellar.expert"
 
 # Author exemptions
 exempt_authors:
