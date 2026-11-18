@@ -129,7 +129,7 @@ func TestDispatcher_NetworkError(t *testing.T) {
 	ts.Close() // Close immediately to force connection failure
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher(ts.URL, logger)
+	d := NewDispatcher(ts.URL+"/secret-token", logger)
 
 	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
 	event := store.StateChangeEvent{
@@ -142,6 +142,25 @@ func TestDispatcher_NetworkError(t *testing.T) {
 	err := d.Dispatch(context.Background(), corridor, event)
 	if err == nil {
 		t.Fatal("expected network error on unreachable server, got nil")
+	}
+	if strings.Contains(err.Error(), "secret-token") {
+		t.Errorf("error leaks the webhook URL: %v", err)
+	}
+}
+
+func TestDispatcher_InvalidURLDoesNotLeakToken(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := NewDispatcher("http://example.com/%zz?token=secret-token", logger)
+
+	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
+	event := store.StateChangeEvent{CorridorID: 1, OccurredAt: time.Now()}
+
+	err := d.Dispatch(context.Background(), corridor, event)
+	if err == nil {
+		t.Fatal("expected invalid URL error, got nil")
+	}
+	if strings.Contains(err.Error(), "secret-token") {
+		t.Errorf("error leaks the webhook URL: %v", err)
 	}
 }
 
@@ -169,5 +188,43 @@ func TestDispatcher_ContextCanceled(t *testing.T) {
 	err := d.Dispatch(ctx, corridor, event)
 	if err == nil {
 		t.Fatal("expected context canceled error, got nil")
+	}
+}
+
+func TestDispatcher_RedirectErrorDoesNotLeakToken(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "/%zz?token=secret-token")
+		w.WriteHeader(http.StatusTemporaryRedirect)
+	}))
+	defer ts.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := NewDispatcher(ts.URL, logger)
+
+	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
+	event := store.StateChangeEvent{CorridorID: 1, OccurredAt: time.Now()}
+
+	err := d.Dispatch(context.Background(), corridor, event)
+	if err == nil {
+		t.Fatal("expected redirect error, got nil")
+	}
+	if !strings.Contains(err.Error(), "posting webhook: request failed") {
+		t.Fatalf("expected sanitized POST error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "secret-token") {
+		t.Errorf("error leaks the redirect Location: %v", err)
+	}
+}
+
+type timeoutError struct{}
+
+func (timeoutError) Error() string { return "i/o timeout" }
+
+func (timeoutError) Timeout() bool { return true }
+
+func TestSanitizedErrorTimeout(t *testing.T) {
+	err := sanitize(timeoutError{})
+	if err.Error() != "request timed out" {
+		t.Fatalf("got %q, want request timed out", err.Error())
 	}
 }
