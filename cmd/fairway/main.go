@@ -65,7 +65,10 @@ func run(logger *slog.Logger) error {
 	logger.Info("corridors seeded", "count", n)
 
 	// --- Components ---
-	refFetcher := reference.NewFrankfurterFetcher(cfg.ReferenceRateURL)
+	var refFetcher reference.Fetcher = reference.NewFrankfurterFetcher(cfg.ReferenceRateURL)
+	if cfg.ReferenceRateTTL > 0 {
+		refFetcher = reference.NewCachedFetcher(refFetcher, cfg.ReferenceRateTTL)
+	}
 	horizonClient := measure.NewHorizonClient(cfg.HorizonURL, refFetcher)
 	dispatcher := webhook.NewDispatcher(cfg.WebhookURL, logger)
 	sched := scheduler.New(

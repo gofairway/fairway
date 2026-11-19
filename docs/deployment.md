@@ -34,6 +34,7 @@ Fairway reads configuration strictly from environment variables upon startup (de
 | `UNUSABLE_LOSS_PCT`| Float | `5.0` | No | Loss percentage threshold ($\ge 5.0\%$) to classify corridor as `unusable`. |
 | `WEBHOOK_URL` | String | `""` (disabled) | No | Destination URL for plain HTTP POST alerts on state change events. |
 | `REFERENCE_RATE_URL` | String | `https://api.frankfurter.dev/v2/rates` | No | Frankfurter v2 rates endpoint for independent FX benchmarks. |
+| `REFERENCE_RATE_TTL` | Duration | `15m` | No | Cache TTL for FX reference rates. Set `0` to disable caching. |
 | `CORRIDORS_FILE` | String | `corridors.yaml` | No | Path to YAML file defining corridors to monitor and seed into PostgreSQL. |
 | `LISTEN_ADDR` | String | `:8080` | No | TCP address and port for HTTP API server (`cmd/fairway/main.go`). |
 

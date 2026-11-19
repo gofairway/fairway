@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestAssetToCurrency(t *testing.T) {
@@ -53,5 +55,53 @@ func TestFrankfurterFetcher(t *testing.T) {
 	}
 	if src != "frankfurter.app" {
 		t.Errorf("expected src 'frankfurter.app', got %s", src)
+	}
+}
+
+type countingFetcher struct {
+	calls atomic.Int64
+	rate  float64
+}
+
+func (f *countingFetcher) FetchRate(context.Context, string, string) (float64, string, error) {
+	f.calls.Add(1)
+	return f.rate, "test", nil
+}
+
+func TestCachedFetcherReusesRateWithinTTL(t *testing.T) {
+	underlying := &countingFetcher{rate: 1.25}
+	fetcher := NewCachedFetcher(underlying, time.Minute)
+	now := time.Now()
+	fetcher.now = func() time.Time { return now }
+
+	for i := 0; i < 3; i++ {
+		rate, _, err := fetcher.FetchRate(context.Background(), "NGN", "USD")
+		if err != nil || rate != 1.25 {
+			t.Fatalf("rate=%v err=%v", rate, err)
+		}
+	}
+	if got := underlying.calls.Load(); got != 1 {
+		t.Fatalf("calls = %d, want 1", got)
+	}
+
+	now = now.Add(2 * time.Minute)
+	if _, _, err := fetcher.FetchRate(context.Background(), "NGN", "USD"); err != nil {
+		t.Fatal(err)
+	}
+	if got := underlying.calls.Load(); got != 2 {
+		t.Fatalf("calls = %d, want 2 after expiry", got)
+	}
+}
+
+func TestCachedFetcherZeroTTLDoesNotCache(t *testing.T) {
+	underlying := &countingFetcher{rate: 1}
+	fetcher := NewCachedFetcher(underlying, 0)
+	for i := 0; i < 2; i++ {
+		if _, _, err := fetcher.FetchRate(context.Background(), "NGN", "USD"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := underlying.calls.Load(); got != 2 {
+		t.Fatalf("calls = %d, want 2", got)
 	}
 }
