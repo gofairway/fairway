@@ -683,4 +683,3 @@ func TestResolveToken(t *testing.T) {
 		t.Fatalf("expected empty token when env unset, got %q", tok)
 	}
 }
-
