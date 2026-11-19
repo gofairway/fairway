@@ -2,6 +2,9 @@ package webhook
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -16,7 +19,7 @@ import (
 
 func TestDispatcher_NoURL(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher("", logger)
+	d := NewDispatcher("", "", logger)
 
 	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
 	event := store.StateChangeEvent{
@@ -56,7 +59,7 @@ func TestDispatcher_Success(t *testing.T) {
 	defer ts.Close()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher(ts.URL, logger)
+	d := NewDispatcher(ts.URL, "", logger)
 
 	measurementID := int64(42)
 	now := time.Now().Truncate(time.Millisecond)
@@ -105,7 +108,7 @@ func TestDispatcher_ServerError(t *testing.T) {
 	defer ts.Close()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher(ts.URL, logger)
+	d := NewDispatcher(ts.URL, "", logger)
 
 	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
 	event := store.StateChangeEvent{
@@ -129,7 +132,7 @@ func TestDispatcher_NetworkError(t *testing.T) {
 	ts.Close() // Close immediately to force connection failure
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher(ts.URL, logger)
+	d := NewDispatcher(ts.URL, "", logger)
 
 	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
 	event := store.StateChangeEvent{
@@ -153,7 +156,7 @@ func TestDispatcher_ContextCanceled(t *testing.T) {
 	defer ts.Close()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	d := NewDispatcher(ts.URL, logger)
+	d := NewDispatcher(ts.URL, "", logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
@@ -169,5 +172,59 @@ func TestDispatcher_ContextCanceled(t *testing.T) {
 	err := d.Dispatch(ctx, corridor, event)
 	if err == nil {
 		t.Fatal("expected context canceled error, got nil")
+	}
+}
+
+func TestDispatcher_HMACSignature(t *testing.T) {
+	const secret = "test-webhook-secret"
+	var gotBody []byte
+	var gotSignature string
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotSignature = r.Header.Get("X-Fairway-Signature-256")
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "bad body", http.StatusBadRequest)
+			return
+		}
+		gotBody = body
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := NewDispatcher(ts.URL, secret, logger)
+	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
+	event := store.StateChangeEvent{CorridorID: 1, OccurredAt: time.Now()}
+
+	if err := d.Dispatch(context.Background(), corridor, event); err != nil {
+		t.Fatal(err)
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(gotBody)
+	want := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	if gotSignature != want {
+		t.Fatalf("signature = %q, want %q", gotSignature, want)
+	}
+}
+
+func TestDispatcher_NoSecretHasNoSignature(t *testing.T) {
+	var gotSignature string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotSignature = r.Header.Get("X-Fairway-Signature-256")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := NewDispatcher(ts.URL, "", logger)
+	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
+	event := store.StateChangeEvent{CorridorID: 1, OccurredAt: time.Now()}
+	if err := d.Dispatch(context.Background(), corridor, event); err != nil {
+		t.Fatal(err)
+	}
+	if gotSignature != "" {
+		t.Fatalf("unexpected signature %q", gotSignature)
 	}
 }

@@ -55,7 +55,8 @@ type AppConfig struct {
 	UnusableLossPct float64 // loss % above which a corridor is "unusable"
 
 	// Webhook
-	WebhookURL string // plain HTTP POST target; empty disables webhooks
+	WebhookURL    string // plain HTTP POST target; empty disables webhooks
+	WebhookSecret string // optional HMAC-SHA256 signing secret
 
 	// Reference rate
 	ReferenceRateURL string // URL template for FX reference rate (optional)
@@ -87,6 +88,7 @@ func Load() (*AppConfig, error) {
 		DegradedLossPct:    envFloat("DEGRADED_LOSS_PCT", 2.5),
 		UnusableLossPct:    envFloat("UNUSABLE_LOSS_PCT", 5.0),
 		WebhookURL:         env("WEBHOOK_URL", ""),
+		WebhookSecret:      env("WEBHOOK_SECRET", ""),
 		ReferenceRateURL:   env("REFERENCE_RATE_URL", "https://api.frankfurter.dev/v2/rates"),
 		CorridorsFile:      env("CORRIDORS_FILE", "corridors.yaml"),
 		ListenAddr:         env("LISTEN_ADDR", ":8080"),
