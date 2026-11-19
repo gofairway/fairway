@@ -242,9 +242,13 @@ All discovered issues were fixed and verified through automated test suites (`go
 2. **Gitleaks Standalone Verification:**
    - Audited `gitleaks/gitleaks-action`: organization accounts require a `GITLEAKS_LICENSE` secret.
    - Replaced action with a standalone installation step in `.github/workflows/gitleaks.yml` downloading pinned `gitleaks` v8.30.1 for Linux x64, verifying its SHA256 checksum against official published `checksums.txt` (fail closed on mismatch), and scanning commit range with `--redact` requiring no secrets or licenses.
-3. **PR Guard Token Isolation:**
+   - Configured commit SHAs to pass via environment variables and ensured checksum verification fails closed if zero files are found or verified.
+   - Scanned all commits across `origin/main..HEAD` with `gitleaks detect --log-opts="origin/main..HEAD" --verbose --redact`, confirming zero leaks.
+3. **PR Guard Token Isolation & Unlabeled Event:**
    - Modified `.github/workflows/pr-guard.yml` to pass `GITHUB_TOKEN` exclusively through environment variables rather than command-line arguments (`-token`).
    - Implemented `ResolveToken` in `tools/prguard` with unit test suite in `guard_test.go`.
-4. **Action SHA Pinning:**
+   - Added `unlabeled` to trigger types in `pr-guard.yml` to ensure removing `security-reviewed` triggers full re-evaluation and fails closed if review findings remain.
+4. **Action SHA Pinning & Linter Migration:**
    - Pinned all third-party actions across workflows to full 40-character commit SHAs with `# vX.Y.Z` version comments, verified using `git ls-remote` (dereferencing `^{}` for annotated tags).
+   - Migrated `.golangci.yml` to v2 schema with `linters.settings.staticcheck.checks: ["all", "-ST*", "-QF*"]` and upgraded `ci.yml` to `golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0` with `version: v2.9.0`.
 
