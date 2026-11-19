@@ -21,7 +21,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks on diff
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION="8.30.1"
+          TAR_FILE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          CHECKSUMS_FILE="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${TAR_FILE}"
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${CHECKSUMS_FILE}"
+
+          # Verify checksum; fail closed on mismatch
+          sha256sum --ignore-missing --check "${CHECKSUMS_FILE}"
+
+          tar -xzf "${TAR_FILE}" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          rm -f "${TAR_FILE}" "${CHECKSUMS_FILE}"
+
+      - name: Run Gitleaks secret detection
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gitleaks detect --verbose --redact --log-opts="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          else
+            gitleaks detect --verbose --redact
+          fi
