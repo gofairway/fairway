@@ -293,7 +293,7 @@ Returns configured corridors with their per-leg verification status.
 ```http
 GET /corridors/{id}/history
 ```
-Returns historical measurements for a specific corridor — Fairway's core value isn't just the current reading, it's knowing how a corridor's condition changed over time. Supports limit (default 50, max 200) and offset query parameters.
+Returns historical measurements for a specific corridor — Fairway's core value isn't just the current reading, it's knowing how a corridor's condition changed over time. Supports `limit` (default 50, max 200), `offset`, and optional `from`/`to` timestamps (RFC 3339 or `YYYY-MM-DD`; date-only `to` includes the whole day).
 
 ---
 
