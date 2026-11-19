@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - Unreleased
 
+### Security
+- Updated Go toolchain to Go 1.26.11 in `go.mod` and Dockerfile builder (`golang:1.26-alpine`) to resolve 19 standard library vulnerabilities identified by `govulncheck` (2026-11-19).
+- Updated production runtime container image to supported `alpine:3.24` (2026-11-19).
+- Replaced `gitleaks-action` with verified standalone pinned `gitleaks` binary (v8.30.1) validating against published SHA256 checksums, eliminating organization licensing requirements and secrets in CI (2026-11-19).
+- Hardened `pr-guard` workflow to pass `GITHUB_TOKEN` strictly via environment variables, avoiding command-line exposure (2026-11-19).
+- Pinned third-party GitHub Actions to immutable full commit SHAs in CI and Docker workflows (2026-11-19).
+
 ### Added
 - Sequential measurement scheduler periodically monitoring enabled Stellar payment corridors (`internal/scheduler`).
 - Stellar Horizon pathfinding client querying `/paths/strict-send` to evaluate execution routes and received amounts (`internal/measure`).
