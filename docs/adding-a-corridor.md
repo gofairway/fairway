@@ -90,6 +90,7 @@ Field notes:
 - `enabled: false` prevents a new entry from being seeded. For a corridor that is already in the database, set `enabled: false` in `corridors.yaml` **and** disable the existing row:
 
 ```bash
+docker compose up -d postgres
 docker compose exec postgres psql -U fairway -d fairway -c "UPDATE corridors SET enabled = FALSE WHERE name = 'SELL/BUY';"
 ```
 
@@ -121,11 +122,14 @@ docker compose logs -f app
 
 A new corridor should appear in `/corridors`. After the scheduler runs, check the stored measurement, not just the `measured` log:
 
+Take the corridor ID from `/corridors`, then substitute it in the URL:
+
 ```bash
-curl http://localhost:8080/corridors/<ID>/history
+# Example: corridor ID 1
+curl http://localhost:8080/corridors/1/history
 ```
 
-For the first row, confirm that `ErrorMsg` is `null`, `ReferenceRate` is present, and `SellAmount` is `target_usd_value` divided by the sell asset's USD rate.
+For the first row, confirm that `ErrorMsg` is `null`, `ReferenceRate` is present, and `SellAmount` is `target_usd_value` divided by the sell asset's USD rate. PostgreSQL stores `SellAmount` with seven decimal places, so compare after rounding to seven decimals.
 
 `docker-compose.yml` sets `MEASURE_INTERVAL` to the literal `5m`, so changing `.env` alone does not shorten it. For a faster local loop, add a `docker-compose.override.yml`:
 
