@@ -662,3 +662,25 @@ func TestCommentAndLabelOperations(t *testing.T) {
 		t.Fatalf("expected PR to be closed")
 	}
 }
+
+func TestResolveToken(t *testing.T) {
+	origEnv := os.Getenv("GITHUB_TOKEN")
+	defer func() {
+		_ = os.Setenv("GITHUB_TOKEN", origEnv)
+	}()
+
+	_ = os.Setenv("GITHUB_TOKEN", "env-token-xyz")
+	if tok := ResolveToken(""); tok != "env-token-xyz" {
+		t.Fatalf("expected env token 'env-token-xyz', got %q", tok)
+	}
+
+	if tok := ResolveToken("override-token"); tok != "override-token" {
+		t.Fatalf("expected override token 'override-token', got %q", tok)
+	}
+
+	_ = os.Unsetenv("GITHUB_TOKEN")
+	if tok := ResolveToken(""); tok != "" {
+		t.Fatalf("expected empty token when env unset, got %q", tok)
+	}
+}
+

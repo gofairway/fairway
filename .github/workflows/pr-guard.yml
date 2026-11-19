@@ -45,7 +45,6 @@ jobs:
             -event "$EVENT_PATH" \
             -repo "$GITHUB_REPOSITORY" \
             -pr-number "$PR_NUMBER" \
-            -token "$GITHUB_TOKEN" \
             -contributing-url "$CONTRIBUTING_URL" \
             -apply=true \
             -exit-code=true

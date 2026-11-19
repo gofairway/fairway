@@ -7,9 +7,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
+
+// ResolveToken returns the CLI token if non-empty, otherwise reads GITHUB_TOKEN from the environment.
+func ResolveToken(cliToken string) string {
+	if cliToken != "" {
+		return cliToken
+	}
+	return os.Getenv("GITHUB_TOKEN")
+}
 
 // GitHubClient handles API interactions with GitHub.
 type GitHubClient struct {

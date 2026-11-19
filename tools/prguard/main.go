@@ -61,7 +61,7 @@ func main() {
 	flag.StringVar(&eventPath, "event", "", "Path to GitHub event JSON file")
 	flag.StringVar(&repoName, "repo", os.Getenv("GITHUB_REPOSITORY"), "GitHub repository (owner/repo)")
 	flag.IntVar(&prNumber, "pr-number", 0, "Pull request number")
-	flag.StringVar(&githubToken, "token", os.Getenv("GITHUB_TOKEN"), "GitHub access token")
+	flag.StringVar(&githubToken, "token", "", "GitHub access token (optional override; default reads GITHUB_TOKEN env var)")
 	flag.StringVar(&authorOverride, "author", "", "Override PR author login")
 	flag.StringVar(&titleOverride, "title", "", "Override PR title")
 	flag.StringVar(&bodyOverride, "body", "", "Override PR body")
@@ -71,6 +71,8 @@ func main() {
 	flag.BoolVar(&exitCode, "exit-code", true, "Exit with non-zero code on BLOCK or REVIEW")
 	flag.StringVar(&contributingURL, "contributing-url", "https://github.com/gofairway/fairway/blob/main/CONTRIBUTING.md#protected-paths-and-automated-checks", "URL to contributing section")
 	flag.Parse()
+
+	githubToken = ResolveToken(githubToken)
 
 	// 1. Load Policy
 	policy, err := LoadPolicy(policyPath)
