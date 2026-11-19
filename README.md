@@ -291,6 +291,11 @@ GET /corridors
 Returns configured corridors with their per-leg verification status.
 
 ```http
+GET /corridors/{id}
+```
+Returns one corridor by ID. Invalid IDs return `400`; missing corridors return `404`.
+
+```http
 GET /corridors/{id}/history
 ```
 Returns historical measurements for a specific corridor — Fairway's core value isn't just the current reading, it's knowing how a corridor's condition changed over time. Supports limit (default 50, max 200) and offset query parameters.

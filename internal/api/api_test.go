@@ -103,6 +103,7 @@ func TestSecurityHeaders(t *testing.T) {
 	}{
 		{"/healthz", "no-store, no-cache, must-revalidate"},
 		{"/corridors", "no-cache, must-revalidate"},
+		{"/corridors/1", "no-cache, must-revalidate"},
 		{"/corridors/1/history", "no-cache, must-revalidate"},
 	}
 
@@ -132,6 +133,48 @@ func TestSecurityHeaders(t *testing.T) {
 			}
 			if got := resp.Header.Get("Content-Type"); got != "application/json" {
 				t.Errorf("Content-Type = %q, want application/json", got)
+			}
+		})
+	}
+}
+
+func TestGetCorridor(t *testing.T) {
+	st := &mockStore{corridors: []store.Corridor{sampleCorridor()}}
+	srv := newTestServer(st)
+	defer srv.Close()
+
+	t.Run("success", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/corridors/1", nil)
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, req)
+
+		resp := w.Result()
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d, want 200", resp.StatusCode)
+		}
+		var body struct {
+			Corridor store.Corridor `json:"corridor"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Corridor.ID != 1 || body.Corridor.Name != "NGNC/USDC" {
+			t.Fatalf("unexpected corridor: %+v", body.Corridor)
+		}
+	})
+
+	for _, id := range []string{"999", "abc", "0", "-1", "1000000001"} {
+		t.Run("invalid_"+id, func(t *testing.T) {
+			want := http.StatusNotFound
+			if id != "999" {
+				want = http.StatusBadRequest
+			}
+			req := httptest.NewRequest(http.MethodGet, "/corridors/"+id, nil)
+			w := httptest.NewRecorder()
+			srv.ServeHTTP(w, req)
+			if w.Code != want {
+				t.Fatalf("status = %d, want %d", w.Code, want)
 			}
 		})
 	}

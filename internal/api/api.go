@@ -139,6 +139,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.handleHealthz)
 	s.mux.HandleFunc("GET /corridors", s.handleListCorridors)
+	s.mux.HandleFunc("GET /corridors/{id}", s.handleGetCorridor)
 	s.mux.HandleFunc("GET /corridors/{id}/history", s.handleCorridorHistory)
 }
 
@@ -163,6 +164,29 @@ func (s *Server) handleListCorridors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"corridors": corridors})
+}
+
+// handleGetCorridor returns a single corridor by ID.
+func (s *Server) handleGetCorridor(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 || id > 1000000000 {
+		writeError(w, http.StatusBadRequest, "invalid corridor id")
+		return
+	}
+
+	corridor, err := s.store.GetCorridor(r.Context(), id)
+	if err != nil {
+		s.logger.Error("get corridor", "id", id, "err", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	if corridor == nil {
+		writeError(w, http.StatusNotFound, "corridor not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"corridor": corridor})
 }
 
 // handleCorridorHistory returns paginated measurements for a single corridor.
