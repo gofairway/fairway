@@ -90,7 +90,7 @@ Field notes:
 - `enabled: false` prevents a new entry from being seeded. For a corridor that is already in the database, set `enabled: false` in `corridors.yaml` **and** disable the existing row:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d --wait postgres
 docker compose exec postgres psql -U fairway -d fairway -c "UPDATE corridors SET enabled = FALSE WHERE name = 'SELL/BUY';"
 ```
 
