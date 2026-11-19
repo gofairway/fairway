@@ -290,6 +290,20 @@ func TestGuardTableDriven(t *testing.T) {
 			expectedRule:   "go-mod-replace",
 			expectApproved: false,
 		},
+		{
+			name:           "Unlabeled event removing security-reviewed triggers re-evaluation and fails review",
+			fixture:        "replace_directive_review.json",
+			author:         "external-dev",
+			title:          "Fixes #93: module replace directive",
+			body:           "Fixes #93 with replacement module",
+			labels:         []string{"security-reviewed"},
+			eventAction:    "unlabeled",
+			eventLabel:     "security-reviewed",
+			sender:         "Sus-Nexus07",
+			expectedAction: ActionReview,
+			expectedRule:   "go-mod-replace",
+			expectApproved: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -681,5 +695,48 @@ func TestResolveToken(t *testing.T) {
 	_ = os.Unsetenv("GITHUB_TOKEN")
 	if tok := ResolveToken(""); tok != "" {
 		t.Fatalf("expected empty token when env unset, got %q", tok)
+	}
+}
+
+func TestUnlabeledEventReevaluatesAndFailsReview(t *testing.T) {
+	policy := getTestPolicy()
+
+	eventData, err := os.ReadFile(filepath.Join("testdata", "unlabeled_event.json"))
+	if err != nil {
+		t.Fatalf("failed to read unlabeled_event.json: %v", err)
+	}
+
+	var payload githubEventPayload
+	if err := json.Unmarshal(eventData, &payload); err != nil {
+		t.Fatalf("failed to parse unlabeled_event.json: %v", err)
+	}
+
+	pr := PRMetadata{
+		Number:       payload.PullRequest.Number,
+		Title:        payload.PullRequest.Title,
+		Body:         payload.PullRequest.Body,
+		Author:       payload.PullRequest.User.Login,
+		Sender:       payload.Sender.Login,
+		EventAction:  payload.Action,
+		EventLabel:   payload.Label.Name,
+		ChangedFiles: payload.PullRequest.ChangedFiles,
+		Additions:    payload.PullRequest.Additions,
+		Deletions:    payload.PullRequest.Deletions,
+	}
+	for _, lbl := range payload.PullRequest.Labels {
+		pr.Labels = append(pr.Labels, lbl.Name)
+	}
+
+	// Even if security-reviewed was present in labels, an unlabeled event for it must fail review
+	pr.Labels = append(pr.Labels, "security-reviewed")
+
+	files := loadFixture(t, "replace_directive_review.json")
+	result := Evaluate(policy, pr, files)
+
+	if result.Action != ActionReview {
+		t.Fatalf("expected ActionReview, got %s", result.Action)
+	}
+	if result.Approved {
+		t.Fatalf("expected Approved to be false when security-reviewed is unlabeled, got true")
 	}
 }

@@ -274,8 +274,8 @@ func Evaluate(policy *Policy, pr PRMetadata, files []PRFile) Result {
 
 		approved := false
 		if hasSecurityReviewed {
-			// A synchronize event invalidates previous reviews
-			if pr.EventAction == "synchronize" {
+			// A synchronize event or removal of security-reviewed label invalidates previous reviews
+			if pr.EventAction == "synchronize" || (pr.EventAction == "unlabeled" && pr.EventLabel == "security-reviewed") {
 				approved = false
 			} else if pr.EventAction == "labeled" && pr.EventLabel == "security-reviewed" {
 				// ONLY maintainers' label events may clear a REVIEW

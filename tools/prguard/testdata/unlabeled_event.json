@@ -1,0 +1,28 @@
+{
+  "action": "unlabeled",
+  "label": {
+    "name": "security-reviewed"
+  },
+  "sender": {
+    "login": "Sus-Nexus07"
+  },
+  "pull_request": {
+    "number": 105,
+    "title": "Fixes #95: update go.mod dependencies",
+    "body": "Fixes #95 with replace directive",
+    "user": {
+      "login": "external-contributor"
+    },
+    "labels": [
+      {
+        "name": "needs-security-review"
+      }
+    ],
+    "changed_files": 1,
+    "additions": 5,
+    "deletions": 2
+  },
+  "repository": {
+    "full_name": "gofairway/fairway"
+  }
+}

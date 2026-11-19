@@ -166,6 +166,17 @@ func main() {
 		}
 	}
 
+	// When security-reviewed is removed (unlabeled event), ensure it is stripped so the guard re-evaluates
+	if pr.EventAction == "unlabeled" && pr.EventLabel == "security-reviewed" {
+		var filtered []string
+		for _, l := range pr.Labels {
+			if l != "security-reviewed" {
+				filtered = append(filtered, l)
+			}
+		}
+		pr.Labels = filtered
+	}
+
 	// 3. Obtain PR Files
 	var files []PRFile
 	if filesPath != "" {
