@@ -29,18 +29,56 @@ type Payload struct {
 // Dispatcher sends webhook payloads to a configured URL.
 type Dispatcher struct {
 	url        string
+	format     string
 	httpClient *http.Client
 	logger     *slog.Logger
 }
 
 // NewDispatcher creates a Dispatcher. If webhookURL is empty, Dispatch is a no-op.
-func NewDispatcher(webhookURL string, logger *slog.Logger) *Dispatcher {
+func NewDispatcher(webhookURL string, logger *slog.Logger, formats ...string) *Dispatcher {
+	format := "raw"
+	if len(formats) > 0 && formats[0] != "" {
+		format = formats[0]
+	}
 	return &Dispatcher{
 		url:    webhookURL,
+		format: format,
 		logger: logger,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
+	}
+}
+
+// formatPayload returns the raw payload or a Slack incoming-webhook payload.
+func (d *Dispatcher) formatPayload(payload Payload) any {
+	if d.format != "slack" {
+		return payload
+	}
+
+	color := "#808080"
+	switch payload.ToState {
+	case "usable":
+		color = "good"
+	case "degraded":
+		color = "warning"
+	case "unusable":
+		color = "danger"
+	}
+
+	text := fmt.Sprintf("%s: %s → %s", payload.CorridorName, payload.FromState, payload.ToState)
+	return map[string]any{
+		"text": text,
+		"attachments": []map[string]any{{
+			"color": color,
+			"title": text,
+			"fields": []map[string]any{
+				{"title": "Corridor", "value": payload.CorridorName, "short": true},
+				{"title": "State", "value": payload.ToState, "short": true},
+			},
+			"footer": "Fairway",
+			"ts":     payload.OccurredAt.Unix(),
+		}},
 	}
 }
 
@@ -61,7 +99,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, corridor store.Corridor, even
 		MeasurementID: event.MeasurementID,
 	}
 
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(d.formatPayload(payload))
 	if err != nil {
 		return fmt.Errorf("marshalling webhook payload: %w", err)
 	}

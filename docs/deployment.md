@@ -33,6 +33,7 @@ Fairway reads configuration strictly from environment variables upon startup (de
 | `DEGRADED_LOSS_PCT`| Float | `2.5` | No | Loss percentage threshold ($\ge 2.5\%$) to classify corridor as `degraded`. |
 | `UNUSABLE_LOSS_PCT`| Float | `5.0` | No | Loss percentage threshold ($\ge 5.0\%$) to classify corridor as `unusable`. |
 | `WEBHOOK_URL` | String | `""` (disabled) | No | Destination URL for plain HTTP POST alerts on state change events. |
+| `WEBHOOK_FORMAT` | String | `raw` | No | `raw` sends the Fairway payload; `slack` sends a Slack incoming-webhook payload with a color-coded attachment. |
 | `REFERENCE_RATE_URL` | String | `https://api.frankfurter.dev/v2/rates` | No | Frankfurter v2 rates endpoint for independent FX benchmarks. |
 | `CORRIDORS_FILE` | String | `corridors.yaml` | No | Path to YAML file defining corridors to monitor and seed into PostgreSQL. |
 | `LISTEN_ADDR` | String | `:8080` | No | TCP address and port for HTTP API server (`cmd/fairway/main.go`). |
