@@ -90,7 +90,7 @@ Field notes:
 - `enabled: false` prevents a new entry from being seeded. For a corridor that is already in the database, set `enabled: false` in `corridors.yaml` **and** disable the existing row:
 
 ```bash
-psql "$DATABASE_URL" -c "UPDATE corridors SET enabled = FALSE WHERE name = 'SELL/BUY';"
+docker compose exec postgres psql -U fairway -d fairway -c "UPDATE corridors SET enabled = FALSE WHERE name = 'SELL/BUY';"
 ```
 
 The loader skips disabled YAML entries. If the YAML entry stays `enabled: true`, the next startup re-enables the database row.
@@ -119,7 +119,15 @@ Watch the logs for the first measurement cycle:
 docker compose logs -f app
 ```
 
-A new corridor should appear in `/corridors`, and its first measurement should be stored after the scheduler runs. `docker-compose.yml` sets `MEASURE_INTERVAL` to the literal `5m`, so changing `.env` alone does not shorten it. For a faster local loop, add a `docker-compose.override.yml`:
+A new corridor should appear in `/corridors`. After the scheduler runs, check the stored measurement, not just the `measured` log:
+
+```bash
+curl http://localhost:8080/corridors/<ID>/history
+```
+
+For the first row, confirm that `ErrorMsg` is `null`, `ReferenceRate` is present, and `SellAmount` is `target_usd_value` divided by the sell asset's USD rate.
+
+`docker-compose.yml` sets `MEASURE_INTERVAL` to the literal `5m`, so changing `.env` alone does not shorten it. For a faster local loop, add a `docker-compose.override.yml`:
 
 ```yaml
 services:
