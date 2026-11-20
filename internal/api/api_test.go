@@ -46,6 +46,10 @@ func (m *mockStore) GetCorridor(ctx context.Context, id int) (*store.Corridor, e
 	return nil, nil
 }
 
+func (m *mockStore) ListMeasurementsRange(ctx context.Context, corridorID, limit, offset int, from, to *time.Time) ([]store.Measurement, error) {
+	return m.ListMeasurements(ctx, corridorID, limit, offset)
+}
+
 func (m *mockStore) ListMeasurements(ctx context.Context, corridorID, limit, offset int) ([]store.Measurement, error) {
 	if m.listMeasurementsErr != nil {
 		return nil, m.listMeasurementsErr
@@ -795,6 +799,65 @@ func TestQueryInt(t *testing.T) {
 		_, err := queryInt(req, "invalid", 50)
 		if err == nil {
 			t.Error("expected error for non-integer query param, got nil")
+		}
+	})
+}
+
+func TestCorridorHistoryDateFilters(t *testing.T) {
+	st := &mockStore{
+		corridors:    []store.Corridor{sampleCorridor()},
+		measurements: map[int][]store.Measurement{1: {}},
+	}
+	srv := newTestServer(st)
+	defer srv.Close()
+
+	t.Run("valid range", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/corridors/1/history?from=2026-10-01T00:00:00Z&to=2026-10-31T23:59:59Z", nil)
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", w.Code)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["from"] == nil || body["to"] == nil {
+			t.Fatalf("expected from/to in response: %#v", body)
+		}
+	})
+
+	t.Run("date-only", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/corridors/1/history?from=2026-10-01&to=2026-10-31", nil)
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", w.Code)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["to"] != "2026-10-31T23:59:59.999999Z" {
+			t.Fatalf("date-only to = %v, want end of day", body["to"])
+		}
+	})
+
+	t.Run("malformed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/corridors/1/history?from=not-a-date", nil)
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", w.Code)
+		}
+	})
+
+	t.Run("from after to", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/corridors/1/history?from=2026-11-01&to=2026-10-01", nil)
+		w := httptest.NewRecorder()
+		srv.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", w.Code)
 		}
 	})
 }

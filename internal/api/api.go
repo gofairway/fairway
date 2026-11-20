@@ -4,10 +4,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofairway/fairway/internal/store"
 )
@@ -18,6 +20,7 @@ type Store interface {
 	ListCorridors(ctx context.Context) ([]store.Corridor, error)
 	GetCorridor(ctx context.Context, id int) (*store.Corridor, error)
 	ListMeasurements(ctx context.Context, corridorID, limit, offset int) ([]store.Measurement, error)
+	ListMeasurementsRange(ctx context.Context, corridorID, limit, offset int, from, to *time.Time) ([]store.Measurement, error)
 }
 
 // Config configures Server security, CORS, and rate limiting options.
@@ -206,7 +209,22 @@ func (s *Server) handleCorridorHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	measurements, err := s.store.ListMeasurements(r.Context(), id, limit, offset)
+	from, err := optionalTimestamp(r, "from", false)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid from timestamp")
+		return
+	}
+	to, err := optionalTimestamp(r, "to", true)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid to timestamp")
+		return
+	}
+	if from != nil && to != nil && from.After(*to) {
+		writeError(w, http.StatusBadRequest, "from date cannot be after to date")
+		return
+	}
+
+	measurements, err := s.store.ListMeasurementsRange(r.Context(), id, limit, offset, from, to)
 	if err != nil {
 		s.logger.Error("list measurements", "corridor_id", id, "err", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
@@ -218,6 +236,8 @@ func (s *Server) handleCorridorHistory(w http.ResponseWriter, r *http.Request) {
 		"measurements": measurements,
 		"limit":        limit,
 		"offset":       offset,
+		"from":         from,
+		"to":           to,
 	})
 }
 
@@ -234,6 +254,22 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 		// At this point the header is already sent; log only.
 		_ = err
 	}
+}
+
+func optionalTimestamp(r *http.Request, name string, inclusiveEnd bool) (*time.Time, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return nil, nil
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			if inclusiveEnd && layout == "2006-01-02" {
+				t = t.Add(24*time.Hour - time.Microsecond)
+			}
+			return &t, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid timestamp %q", raw)
 }
 
 // queryInt reads an integer query parameter with a default value.

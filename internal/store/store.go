@@ -301,6 +301,42 @@ LIMIT $2 OFFSET $3`
 	return out, rows.Err()
 }
 
+// ListMeasurementsRange returns measurements for a corridor, optionally bounded by time.
+func (s *Store) ListMeasurementsRange(ctx context.Context, corridorID, limit, offset int, from, to *time.Time) ([]Measurement, error) {
+	q := `
+SELECT id, corridor_id, measured_at, target_usd_value, sell_amount, received_amount, loss_pct,
+       reference_rate, reference_src, integrity_state, path_found, raw_response, error_msg
+FROM measurements
+WHERE corridor_id = $1`
+	args := []any{corridorID}
+	if from != nil {
+		args = append(args, *from)
+		q += fmt.Sprintf(" AND measured_at >= $%d", len(args))
+	}
+	if to != nil {
+		args = append(args, *to)
+		q += fmt.Sprintf(" AND measured_at <= $%d", len(args))
+	}
+	args = append(args, limit, offset)
+	q += fmt.Sprintf(" ORDER BY measured_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list measurements: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Measurement
+	for rows.Next() {
+		m, err := s.scanMeasurement(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *m)
+	}
+	return out, rows.Err()
+}
+
 // scanMeasurement scans a single row into a Measurement (works for *sql.Row and *sql.Rows).
 type rower interface {
 	Scan(dest ...any) error

@@ -9,7 +9,7 @@ This guide covers deploying Fairway on any Docker host and on Railway, configuri
 Fairway runs as a single Go binary or Docker container consisting of:
 - **Scheduler**: Periodically executes Stellar Horizon strict-send pathfinding and queries Frankfurter mid-market FX rates across enabled corridors.
 - **Store**: Persists measurements and state changes to PostgreSQL.
-- **REST API**: Serves `/healthz`, `/corridors`, and `/corridors/{id}/history`.
+- **REST API**: Serves `/healthz`, `/corridors`, and `/corridors/{id}/history` (with optional `from`/`to` date filters).
 - **Dispatcher**: Sends HTTP POST webhooks on corridor state changes (if configured).
 
 Fairway requires network access to:
