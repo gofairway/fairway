@@ -1,0 +1,11 @@
+[
+  {
+    "sha": "f6a1b2c3d4e5",
+    "filename": "internal/measure/big_file.go",
+    "status": "modified",
+    "additions": 4000,
+    "deletions": 100,
+    "changes": 4100,
+    "patch": ""
+  }
+]

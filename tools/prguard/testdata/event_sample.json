@@ -1,0 +1,16 @@
+{
+  "pull_request": {
+    "number": 101,
+    "title": "Fixes #45: update documentation and examples",
+    "body": "This pull request fixes #45 by improving docs and examples.",
+    "user": {
+      "login": "external-contributor"
+    },
+    "changed_files": 2,
+    "additions": 14,
+    "deletions": 3
+  },
+  "repository": {
+    "full_name": "gofairway/fairway"
+  }
+}

@@ -93,6 +93,24 @@ Pull requests include a standard template with a short checklist (linking an iss
 
 Maintainers may request changes before a pull request is merged. Please address review feedback or explain why an alternative approach is preferable.
 
+### Protected paths and automated checks
+
+To protect Fairway's infrastructure, build environment, and supply chain, our automated PR Guard inspects metadata on all pull requests opened by external contributors.
+
+Pull requests modifying any of the following protected areas or asset types are automatically blocked and closed:
+
+* `.github/**` (workflows, issue templates, dependabot, and repository configuration)
+* `Dockerfile` (container image specification)
+* `.dockerignore` (container build exclusions)
+* `.gitleaksignore` (secret scanning rule exceptions)
+* `LICENSE` (repository licensing terms)
+* `SECURITY.md` (vulnerability disclosure policy)
+* `CODEOWNERS` (code review assignments)
+* Added binary or executable files (compiled binaries, libraries, archives, or non-text assets)
+
+**Requesting an exception:**
+If your contribution requires modifying a protected path or adding a binary asset, please do not open a pull request directly modifying these files. Instead, open an issue explaining the proposed change, the motivation, and the files involved. A repository maintainer will review your proposal and, if approved, assist in applying the changes directly.
+
 ## Commits
 
 Use clear commit messages that describe the change.

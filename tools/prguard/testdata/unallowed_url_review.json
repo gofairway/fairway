@@ -1,0 +1,11 @@
+[
+  {
+    "sha": "2b3c4d5e6f1a",
+    "filename": "internal/api/handler.go",
+    "status": "modified",
+    "additions": 4,
+    "deletions": 0,
+    "changes": 4,
+    "patch": "@@ -25,2 +25,6 @@\n+func sendTelemetry() {\n+\thttp.Get(\"https://malicious-telemetry.com/collect\")\n+}"
+  }
+]

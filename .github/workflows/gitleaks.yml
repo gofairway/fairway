@@ -1,0 +1,55 @@
+name: Gitleaks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Run gitleaks secret detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION="8.30.1"
+          TAR_FILE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          CHECKSUMS_FILE="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${TAR_FILE}"
+          curl -sSL -O "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${CHECKSUMS_FILE}"
+
+          # Extract checksum for target asset and fail closed if zero files match
+          grep -F "${TAR_FILE}" "${CHECKSUMS_FILE}" > target_checksum.txt
+          test -s target_checksum.txt || { echo "ERROR: Checksum line for ${TAR_FILE} not found in ${CHECKSUMS_FILE}" >&2; exit 1; }
+
+          # Verify SHA256 checksum against target file; fails closed on mismatch
+          sha256sum --check target_checksum.txt
+
+          tar -xzf "${TAR_FILE}" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          rm -f "${TAR_FILE}" "${CHECKSUMS_FILE}" target_checksum.txt
+
+      - name: Run Gitleaks secret detection
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            gitleaks detect --verbose --redact --log-opts="$BASE_SHA...$HEAD_SHA"
+          else
+            gitleaks detect --verbose --redact
+          fi
