@@ -95,7 +95,7 @@ This creates:
 
 3. Create `.env` from `.env.example`:
    ```bash
-   cp .env.example .env
+   [ -f .env ] || cp .env.example .env
    # Edit .env and adjust MEASURE_INTERVAL=10m
    ```
 
