@@ -152,7 +152,9 @@ If the corridor is disabled, confirm that it does not appear in the API response
 
   ```bash
   export DATABASE_URL='postgres://user:pass@host:5432/db?sslmode=disable'
-  go test -race ./...
+  go test -race -v ./...
   ```
+
+  Check the verbose output and confirm that the store and scheduler database tests actually ran. If `DATABASE_URL` is set but unreachable, the test helper skips them and `go test` can still exit successfully.
 
 - Do not include secrets, private credentials, or unverified claims about third-party APIs.
