@@ -58,7 +58,8 @@ type AppConfig struct {
 	WebhookURL string // plain HTTP POST target; empty disables webhooks
 
 	// Reference rate
-	ReferenceRateURL string // URL template for FX reference rate (optional)
+	ReferenceRateURL string        // URL template for FX reference rate (optional)
+	ReferenceRateTTL time.Duration // cache TTL for FX reference rates
 
 	// Corridors file path
 	CorridorsFile string
@@ -88,6 +89,7 @@ func Load() (*AppConfig, error) {
 		UnusableLossPct:    envFloat("UNUSABLE_LOSS_PCT", 5.0),
 		WebhookURL:         env("WEBHOOK_URL", ""),
 		ReferenceRateURL:   env("REFERENCE_RATE_URL", "https://api.frankfurter.dev/v2/rates"),
+		ReferenceRateTTL:   envDuration("REFERENCE_RATE_TTL", 15*time.Minute),
 		CorridorsFile:      env("CORRIDORS_FILE", "corridors.yaml"),
 		ListenAddr:         env("LISTEN_ADDR", ":8080"),
 		CORSAllowedOrigins: env("CORS_ALLOWED_ORIGINS", ""),

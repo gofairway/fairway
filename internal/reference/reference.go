@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -49,6 +50,56 @@ func AssetToCurrency(code string) string {
 		}
 		return upper
 	}
+}
+
+type cacheEntry struct {
+	rate   float64
+	source string
+	expiry time.Time
+}
+
+// CachedFetcher wraps a Fetcher with a TTL cache.
+type CachedFetcher struct {
+	underlying Fetcher
+	ttl        time.Duration
+	now        func() time.Time
+	mu         sync.RWMutex
+	cache      map[string]cacheEntry
+}
+
+// NewCachedFetcher wraps underlying with a per-currency-pair TTL cache.
+func NewCachedFetcher(underlying Fetcher, ttl time.Duration) *CachedFetcher {
+	return &CachedFetcher{
+		underlying: underlying,
+		ttl:        ttl,
+		now:        time.Now,
+		cache:      make(map[string]cacheEntry),
+	}
+}
+
+// FetchRate returns a cached rate when it is still fresh, otherwise delegates.
+func (c *CachedFetcher) FetchRate(ctx context.Context, fromCurrency, toCurrency string) (float64, string, error) {
+	key := strings.ToUpper(strings.TrimSpace(fromCurrency)) + ":" + strings.ToUpper(strings.TrimSpace(toCurrency))
+
+	if c.ttl > 0 {
+		c.mu.RLock()
+		entry, ok := c.cache[key]
+		c.mu.RUnlock()
+		if ok && c.now().Before(entry.expiry) {
+			return entry.rate, entry.source, nil
+		}
+	}
+
+	rate, source, err := c.underlying.FetchRate(ctx, fromCurrency, toCurrency)
+	if err != nil {
+		return 0, "", err
+	}
+	if c.ttl > 0 {
+		c.mu.Lock()
+		c.cache[key] = cacheEntry{rate: rate, source: source, expiry: c.now().Add(c.ttl)}
+		c.mu.Unlock()
+	}
+	return rate, source, nil
 }
 
 // FrankfurterFetcher retrieves mid-market reference rates from Frankfurter.
