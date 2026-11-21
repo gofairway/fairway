@@ -19,7 +19,16 @@ func TestAssetToCurrency(t *testing.T) {
 		{"KESC", "KES"},
 		{"XLM", "XLM"},
 		{"BRLC", "BRL"},
+		{"USDT", "USD"},
+		{"EURT", "EUR"},
+		{"AUDD", "AUD"},
+		{"XSGD", "SGD"},
+		{"IDRT", "IDR"},
+		{"ARST", "ARS"},
+		{"BRLA", "BRL"},
+		{"  usdt  ", "USD"},
 		{"USD", "USD"},
+		{"ZZZZ", "ZZZZ"},
 	}
 
 	for _, tt := range tests {

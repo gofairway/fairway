@@ -40,6 +40,20 @@ func AssetToCurrency(code string) string {
 		return "GHS"
 	case "KESC":
 		return "KES"
+	case "USDT":
+		return "USD"
+	case "EURT":
+		return "EUR"
+	case "AUDD":
+		return "AUD"
+	case "XSGD":
+		return "SGD"
+	case "IDRT":
+		return "IDR"
+	case "ARST":
+		return "ARS"
+	case "BRLA":
+		return "BRL"
 	case "XLM":
 		return "XLM"
 	default:
