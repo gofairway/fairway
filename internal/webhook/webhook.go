@@ -6,6 +6,9 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -29,14 +32,16 @@ type Payload struct {
 // Dispatcher sends webhook payloads to a configured URL.
 type Dispatcher struct {
 	url        string
+	secret     string
 	httpClient *http.Client
 	logger     *slog.Logger
 }
 
 // NewDispatcher creates a Dispatcher. If webhookURL is empty, Dispatch is a no-op.
-func NewDispatcher(webhookURL string, logger *slog.Logger) *Dispatcher {
+func NewDispatcher(webhookURL, secret string, logger *slog.Logger) *Dispatcher {
 	return &Dispatcher{
 		url:    webhookURL,
+		secret: secret,
 		logger: logger,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
@@ -71,6 +76,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, corridor store.Corridor, even
 		return fmt.Errorf("building webhook request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if d.secret != "" {
+		mac := hmac.New(sha256.New, []byte(d.secret))
+		_, _ = mac.Write(body)
+		req.Header.Set("X-Fairway-Signature-256", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+	}
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {

@@ -67,7 +67,7 @@ func run(logger *slog.Logger) error {
 	// --- Components ---
 	refFetcher := reference.NewFrankfurterFetcher(cfg.ReferenceRateURL)
 	horizonClient := measure.NewHorizonClient(cfg.HorizonURL, refFetcher)
-	dispatcher := webhook.NewDispatcher(cfg.WebhookURL, logger)
+	dispatcher := webhook.NewDispatcher(cfg.WebhookURL, cfg.WebhookSecret, logger)
 	sched := scheduler.New(
 		st, horizonClient, dispatcher, logger,
 		cfg.SellAmount, cfg.MeasureInterval,
