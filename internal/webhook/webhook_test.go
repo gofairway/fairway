@@ -171,3 +171,43 @@ func TestDispatcher_ContextCanceled(t *testing.T) {
 		t.Fatal("expected context canceled error, got nil")
 	}
 }
+
+func TestDispatcher_SlackFormat(t *testing.T) {
+	var body map[string]any
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	d := NewDispatcher(ts.URL, logger, "slack")
+	corridor := store.Corridor{ID: 1, Name: "NGNC/USDC"}
+	event := store.StateChangeEvent{
+		CorridorID: 1,
+		FromState:  store.StateUsable,
+		ToState:    store.StateUnusable,
+		OccurredAt: time.Now(),
+	}
+
+	if err := d.Dispatch(context.Background(), corridor, event); err != nil {
+		t.Fatal(err)
+	}
+
+	text, _ := body["text"].(string)
+	if !strings.Contains(text, "NGNC/USDC") || !strings.Contains(text, "unusable") {
+		t.Fatalf("unexpected Slack text: %q", text)
+	}
+	attachments, ok := body["attachments"].([]any)
+	if !ok || len(attachments) != 1 {
+		t.Fatalf("expected one attachment, got %#v", body["attachments"])
+	}
+	attachment, ok := attachments[0].(map[string]any)
+	if !ok || attachment["color"] != "danger" {
+		t.Fatalf("unexpected attachment: %#v", attachments[0])
+	}
+}
